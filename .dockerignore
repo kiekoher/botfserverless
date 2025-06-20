@@ -1,0 +1,34 @@
+# Archivos sensibles
+.env
+
+# Dependencias locales (se instalan dentro del contenedor)
+node_modules
+npm-debug.log
+
+# Versionado
+.git
+.gitignore
+
+# Archivos del sistema y editores
+*.swp
+*.swo
+*.DS_Store
+Thumbs.db
+
+# Backups o binarios
+*.bak
+*.old
+*.zip
+*.tar
+*.tar.gz
+
+# Archivos de desarrollo no necesarios
+setup_full.sh
+start_full.sh
+start_ollama.sh
+check_env.sh
+fix_permissions.sh
+docker-compose-mistral.yml.save
+schema.sql
+uploadDocument.js
+bot.js

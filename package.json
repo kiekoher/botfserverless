@@ -1,0 +1,20 @@
+{
+  "name": "dueloanimalbot",
+  "version": "1.0.0",
+  "description": "Chatbot de duelo animal con embeddings Gemini y Supabase",
+  "main": "bot.js",
+  "type": "module",
+  "scripts": {
+    "start": "node bot.js",
+    "embed": "node load_and_embed.js",
+    "convert": "node converter.js"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.5.0",
+    "@supabase/supabase-js": "^2.50.0",
+    "axios": "^1.10.0",
+    "dotenv": "^16.5.0",
+    "pdf-parse": "^1.1.1",
+    "xlsx": "^0.18.5"
+  }
+}

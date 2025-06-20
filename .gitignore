@@ -1,0 +1,16 @@
+# Entorno y dependencias
+node_modules/
+.env
+npm-debug.log
+
+# Docker
+/models/
+*.gguf
+
+# Archivos del sistema/editor
+*.swp
+*.swo
+.DS_Store
+
+# Otros
+jsonl_output/
