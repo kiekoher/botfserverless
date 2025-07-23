@@ -1,35 +1,13 @@
-version: '3.8'
-
 services:
-
-  ollama:
-    image: ollama/ollama:latest
-    container_name: ollama
-    volumes:
-      - ollama_models:/root/.ollama
-    ports:
-      - "11434:11434"
-    restart: unless-stopped
-    environment:
-      - OLLAMA_MODELS=/models
-
   dueloanimalbot:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: dueloanimalbot
-    depends_on:
-      - ollama
     volumes:
       - ./documentos:/app/documentos
       - ./jsonl_output:/app/jsonl_output
-    environment:
-      - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}
-      - SUPABASE_URL=${SUPABASE_URL}
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
-      - HF_TOKEN=${HF_TOKEN}
+    env_file:
+      - .env
     restart: unless-stopped
     command: node auto_ingest.cjs
-
-volumes:
-  ollama_models:
