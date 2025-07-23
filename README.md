@@ -17,3 +17,12 @@ Este proyecto implementa un bot de respuesta automática sensible al duelo anima
 ```bash
 sudo apt update
 sudo apt install -y docker.io docker-compose
+
+## 🧪 Tests
+
+Instala las dependencias y ejecuta las pruebas con:
+
+```bash
+npm install
+npm test
+```
