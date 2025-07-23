@@ -6,8 +6,8 @@
   "type": "module",
   "scripts": {
     "start": "node bot.js",
-    "embed": "node load_and_embed.js",
-    "convert": "node converter.js"
+    "embed": "node load_and_embed.cjs",
+    "convert": "node converter.cjs"
   },
   "dependencies": {
     "@google/generative-ai": "^0.5.0",
