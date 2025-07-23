@@ -2,7 +2,8 @@
 // ==              AGENTE CONVERSACIONAL - BOT.JS                 ==
 // =================================================================
 import 'dotenv/config';
-import { Client, LocalAuth } from 'whatsapp-web.js';
+import pkg from 'whatsapp-web.js';
+const { Client, LocalAuth } = pkg;
 import qrcode from 'qrcode-terminal';
 import { processRagQuery } from './src/services/ragGeminiService.js';
 import { sendHumanResponse } from './src/utils/humanBehavior.js';
