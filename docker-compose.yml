@@ -1,13 +1,22 @@
 services:
-  dueloanimalbot:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: dueloanimalbot
+  ingest:
+    build: .
+    container_name: dueloanimalbot_ingest
+    restart: unless-stopped
+    env_file: .env
     volumes:
       - ./documentos:/app/documentos
       - ./jsonl_output:/app/jsonl_output
-    env_file:
-      - .env
-    restart: unless-stopped
+    # Comando específico para este servicio
     command: node auto_ingest.cjs
+
+  bot:
+    build: .
+    container_name: dueloanimalbot_bot
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      # Este volumen guarda la sesión de WhatsApp para no escanear el QR cada vez
+      - ./.wwebjs_auth:/app/.wwebjs_auth
+    # Comando específico para este servicio
+    command: node bot.js

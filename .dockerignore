@@ -31,4 +31,3 @@ fix_permissions.sh
 docker-compose-mistral.yml.save
 schema.sql
 uploadDocument.js
-bot.js
