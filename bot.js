@@ -9,6 +9,9 @@ import { processRagQuery } from './src/services/ragGeminiService.js';
 import { sendHumanResponse } from './src/utils/humanBehavior.js';
 import { logConversation } from './src/services/supabaseClient.js';
 
+// Mapa para mantener el historial de conversaciones por usuario
+const conversations = new Map();
+
 console.log('🚀 Iniciando Agente Conversacional DueloAnimalBot...');
 
 const client = new Client({
@@ -47,11 +50,16 @@ client.on('message', async (message) => {
     console.log(`💬 Mensaje recibido de ${message.from}: "${userQuery}"`);
 
     try {
-        const conversationHistory = []; // Simplificado
-        const { response: botResponse, context } = await processRagQuery(userQuery, conversationHistory);
+        let history = conversations.get(message.from) || [];
+        const { response: botResponse, context } = await processRagQuery(userQuery, history);
         await sendHumanResponse(chat, botResponse);
         console.log(`✉️ Respuesta enviada a ${message.from}: "${botResponse}"`);
         await logConversation(message.from, userQuery, botResponse, context);
+
+        history.push({ sender: 'Usuario', message: userQuery });
+        history.push({ sender: 'Natalia', message: botResponse });
+        history = history.slice(-20);
+        conversations.set(message.from, history);
     } catch (error) {
         console.error('❌ Error procesando el mensaje:', error);
         await chat.sendMessage('Lo siento, estoy teniendo dificultades para procesar tu mensaje. Inténtalo de nuevo más tarde.');
