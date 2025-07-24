@@ -4,9 +4,11 @@ Este proyecto implementa un bot de atención al cliente y ventas para la firma d
 
 - 📁 Ingesta automática de documentos desde `/documentos`
 - 📄 Conversión y validación `.txt` ➜ `.jsonl`
-- 🧠 Clasificación con modelo local Mistral 7B Instruct (vía Ollama)
-- 🧩 Inserción y embeddings en Supabase
+- 🧠 Clasificación con Gemini (vía API)
+- 🧩 Inserción y embeddings en Supabase (generados con Gemini)
 - 💬 Generación de respuestas contextualizadas con Gemini
+
+Tanto los embeddings como la clasificación se realizan mediante las APIs de Gemini.
 
 ---
 
@@ -24,7 +26,7 @@ sudo apt install -y docker.io docker-compose
 1. Copia el archivo `.env.example` a `.env`.
 2. Completa los valores requeridos:
 
-   - `GEMINI_API_KEY`: clave de API para Gemini.
+   - `GEMINI_API_KEY`: clave de API para Gemini, utilizada para los embeddings y la clasificación.
    - `SUPABASE_URL` y `SUPABASE_KEY`: credenciales de tu proyecto Supabase.
    - `SUPABASE_SERVICE_KEY`: clave de servicio para ingestión.
    - `REDIS_URL` (opcional): URL de conexión a Redis. Por defecto es `redis://redis:6379`.
