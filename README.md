@@ -19,6 +19,16 @@ sudo apt update
 sudo apt install -y docker.io docker-compose
 ```
 
+## 📄 Variables de entorno
+
+1. Copia el archivo `.env.example` a `.env`.
+2. Completa los valores requeridos:
+
+   - `GEMINI_API_KEY`: clave de API para Gemini.
+   - `SUPABASE_URL` y `SUPABASE_KEY`: credenciales de tu proyecto Supabase.
+   - `SUPABASE_SERVICE_KEY`: clave de servicio para ingestión.
+   - `REDIS_URL` (opcional): URL de conexión a Redis. Por defecto es `redis://redis:6379`.
+
 ## 🧪 Tests
 
 Instala las dependencias y ejecuta las pruebas con:

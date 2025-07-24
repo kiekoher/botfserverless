@@ -5,9 +5,11 @@
 // =================================================================
 
 import { createClient } from 'redis';
+import 'dotenv/config';
 
+const redisUrl = process.env.REDIS_URL || 'redis://redis:6379';
 const redisClient = createClient({
-    url: 'redis://redis:6379'
+    url: redisUrl
 });
 
 redisClient.on('error', (err) => console.error('Error en el Cliente de Redis', err));
