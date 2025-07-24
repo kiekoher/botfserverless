@@ -47,11 +47,13 @@ client.on('message', async (message) => {
         // Usamos el nuevo clasificador de Gemini
         const classification = await classifyAndExtract(userQuery);
         let botResponse;
+        let contextChunks = [];
 
         if (classification.decision === 'use_rag') {
             const history = conversations.get(userId) || [];
             const ragResult = await processRagQuery(classification.summary_for_rag, history);
             botResponse = ragResult.response;
+            contextChunks = ragResult.context;
         } else if (classification.decision === 'use_tool') {
             // Lógica de herramientas (simplificada por ahora)
             if (classification.tool_call.name === 'get_service_info') {
@@ -72,12 +74,12 @@ client.on('message', async (message) => {
         history.push({ sender: 'Natalia', message: botResponse });
         conversations.set(userId, history.slice(-20));
         
-        await logConversation({
+        await logConversation(
             userId,
-            userMessage: userQuery,
+            userQuery,
             botResponse,
-            intent: classification.decision
-        });
+            contextChunks
+        );
 
     } catch (error) {
         console.error(`❌ Error fatal procesando el mensaje de ${userId}:`, error);
