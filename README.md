@@ -37,3 +37,18 @@ Instala las dependencias y ejecuta las pruebas con:
 npm install
 npm test
 ```
+
+## ❗ Limpieza de contenedores antiguos
+
+Si al ejecutar `docker compose up` ves nombres de contenedores
+relacionados con proyectos anteriores (por ejemplo `dueloanimalbot_bot`),
+es probable que existan contenedores residuales en tu sistema.
+Detén y elimina los servicios previos antes de volver a construir:
+
+```bash
+docker compose down
+docker compose up --build -d
+```
+
+Esto asegurará que se utilicen los nombres de contenedor definidos en
+`docker-compose.yml` (como `eva_bot` y `eva_ingest`).

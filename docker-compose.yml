@@ -4,7 +4,10 @@ services:
       context: .
       # Especifica que debe usar el Dockerfile principal
       dockerfile: Dockerfile
-    container_name: crezgobot_bot
+    # Nombre explícito del contenedor para evitar confusión con proyectos
+    # previos que hayan usado la misma ruta de trabajo. Cambiamos la
+    # denominación a eva_bot.
+    container_name: eva_bot
     volumes:
       - ./.wwebjs_auth:/app/.wwebjs_auth
       - ./qr:/app/qr
@@ -19,7 +22,9 @@ services:
       # --- INICIO DE LA CORRECCIÓN ---
       # Apunta al mismo Dockerfile que el bot.
       dockerfile: Dockerfile
-    container_name: crezgobot_ingest
+    # Contenedor dedicado a la ingesta automática de documentos. También
+    # actualizamos su nombre para mantener coherencia con el bot principal.
+    container_name: eva_ingest
     volumes:
       - ./documentos:/app/documentos
       - ./jsonl_output:/app/jsonl_output
