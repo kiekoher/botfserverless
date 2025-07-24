@@ -27,4 +27,11 @@ describe('geminiClassifier.classifyAndExtract', () => {
     const res = await classifyAndExtract('test');
     assert.deepEqual(res, { decision: 'use_rag', tool_call: null, summary_for_rag: 'test' });
   });
+
+  it('returns default decision when API responds with malformed JSON', async () => {
+    const malformed = '{ "decision": "use_tool"';
+    const classifyAndExtract = await importClassifier(() => malformed);
+    const res = await classifyAndExtract('fail');
+    assert.deepEqual(res, { decision: 'use_rag', tool_call: null, summary_for_rag: 'fail' });
+  });
 });
