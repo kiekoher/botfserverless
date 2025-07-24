@@ -28,7 +28,29 @@ sudo apt install -y docker.io docker-compose
 
    - `GEMINI_API_KEY`: clave de API para Gemini, utilizada para los embeddings y la clasificación.
    - `SUPABASE_URL` y `SUPABASE_KEY`: credenciales de tu proyecto Supabase.
+
    - `SUPABASE_SERVICE_KEY`: clave de servicio para ingestión.
+
+## ▶️ Inicio de servicios
+
+1. Crea las carpetas necesarias antes de levantar los contenedores:
+
+```bash
+mkdir -p documentos jsonl_output
+```
+
+2. Arranca los servicios en segundo plano (construyendo las imágenes la primera vez):
+
+```bash
+docker compose up --build -d
+```
+
+3. Si algo falla, revisa los logs de cada servicio con:
+
+```bash
+docker compose logs -f eva_bot
+docker compose logs -f eva_ingest
+```
 
 ## 🧪 Tests
 
