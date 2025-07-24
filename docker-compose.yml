@@ -4,6 +4,7 @@ services:
     container_name: dueloanimalbot_ingest
     restart: unless-stopped
     env_file: .env
+    user: root
     volumes:
       - ./documentos:/app/documentos
       - ./jsonl_output:/app/jsonl_output
