@@ -7,7 +7,6 @@ services:
     volumes:
       - ./documentos:/app/documentos
       - ./jsonl_output:/app/jsonl_output
-    # Comando específico para este servicio
     command: node auto_ingest.cjs
 
   bot:
@@ -16,7 +15,5 @@ services:
     restart: unless-stopped
     env_file: .env
     volumes:
-      # Este volumen guarda la sesión de WhatsApp para no escanear el QR cada vez
       - ./.wwebjs_auth:/app/.wwebjs_auth
-    # Comando específico para este servicio
     command: node bot.js

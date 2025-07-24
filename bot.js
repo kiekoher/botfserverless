@@ -1,68 +1,87 @@
 // =================================================================
-// ==              AGENTE CONVERSACIONAL - BOT.JS                 ==
+// ==      ORQUESTADOR PRINCIPAL EVA (TODO GEMINI)                ==
 // =================================================================
 import 'dotenv/config';
 import pkg from 'whatsapp-web.js';
 const { Client, LocalAuth } = pkg;
 import qrcode from 'qrcode-terminal';
 import { processRagQuery } from './src/services/ragGeminiService.js';
+import { classifyAndExtract } from './src/services/geminiClassifier.js'; // <-- CAMBIO IMPORTANTE
 import { sendHumanResponse } from './src/utils/humanBehavior.js';
-import { logConversation } from './src/services/supabaseClient.js';
+import { logConversation } from './src/services/dbOperations.js';
 
-// Mapa para mantener el historial de conversaciones por usuario
+console.log("🚀 Iniciando Orquestador EVA (Todo-Gemini)...");
+
 const conversations = new Map();
 
-console.log('🚀 Iniciando Agente Conversacional DueloAnimalBot...');
-
 const client = new Client({
-    authStrategy: new LocalAuth(), // Guarda la sesión para no escanear el QR cada vez
+    authStrategy: new LocalAuth(),
     puppeteer: {
         headless: true,
         args: [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage',
-            '--disable-accelerated-2d-canvas',
-            '--no-first-run',
-            '--no-zygote',
-            '--single-process',
-            '--disable-gpu'
-        ],
+            '--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage',
+            '--disable-accelerated-2d-canvas', '--no-first-run', '--no-zygote',
+            '--single-process', '--disable-gpu'
+        ]
     }
 });
 
-// Evento para mostrar el QR en la terminal del contenedor
-client.on('qr', (qr) => {
-    console.log('📱 Escanea este código QR con el WhatsApp que usará el bot.');
-    console.log('📌 Para ver el QR, ejecuta: sudo docker compose logs bot');
+client.on('qr', qr => {
+    console.log('📱 Escanea este código QR para conectar el bot:');
     qrcode.generate(qr, { small: true });
 });
 
 client.on('ready', () => {
-    console.log('✅ ¡El bot de WhatsApp está conectado y listo para conversar!');
+    console.log('✅ Cliente de WhatsApp conectado y listo.');
 });
 
 client.on('message', async (message) => {
     const chat = await message.getChat();
-    if (chat.isGroup) return; // Ignorar mensajes de grupos
+    if (chat.isGroup) return;
 
+    const userId = message.from;
     const userQuery = message.body;
-    console.log(`💬 Mensaje recibido de ${message.from}: "${userQuery}"`);
+    console.log(`💬 Mensaje de ${userId}: "${userQuery}"`);
 
     try {
-        let history = conversations.get(message.from) || [];
-        const { response: botResponse, context } = await processRagQuery(userQuery, history);
-        await sendHumanResponse(chat, botResponse);
-        console.log(`✉️ Respuesta enviada a ${message.from}: "${botResponse}"`);
-        await logConversation(message.from, userQuery, botResponse, context);
+        // Usamos el nuevo clasificador de Gemini
+        const classification = await classifyAndExtract(userQuery);
+        let botResponse;
 
+        if (classification.decision === 'use_rag') {
+            const history = conversations.get(userId) || [];
+            const ragResult = await processRagQuery(classification.summary_for_rag, history);
+            botResponse = ragResult.response;
+        } else if (classification.decision === 'use_tool') {
+            // Lógica de herramientas (simplificada por ahora)
+            if (classification.tool_call.name === 'get_service_info') {
+                botResponse = "Claro, te cuento sobre mis servicios. Ofrezco acompañamiento individual para duelo anticipado y posterior al fallecimiento. La sesión inicial es de 80 minutos para conocernos bien, y luego tenemos sesiones de seguimiento. ¿Te gustaría saber los precios?";
+            } else {
+                botResponse = "Entiendo que quieres agendar una cita. Para coordinarlo, por favor indícame qué tipo de sesión te interesa: ¿inicial, de seguimiento o un paquete?";
+            }
+        } else {
+            botResponse = "Disculpa, no te he entendido bien. ¿Podrías explicármelo de otra manera?";
+        }
+        
+        await sendHumanResponse(chat, botResponse);
+        console.log(`✉️ Respuesta para ${userId}: "${botResponse}"`);
+
+        // Actualizar historial y logs
+        let history = conversations.get(userId) || [];
         history.push({ sender: 'Usuario', message: userQuery });
         history.push({ sender: 'Natalia', message: botResponse });
-        history = history.slice(-20);
-        conversations.set(message.from, history);
+        conversations.set(userId, history.slice(-20));
+        
+        await logConversation({
+            userId,
+            userMessage: userQuery,
+            botResponse,
+            intent: classification.decision
+        });
+
     } catch (error) {
-        console.error('❌ Error procesando el mensaje:', error);
-        await chat.sendMessage('Lo siento, estoy teniendo dificultades para procesar tu mensaje. Inténtalo de nuevo más tarde.');
+        console.error(`❌ Error fatal procesando el mensaje de ${userId}:`, error);
+        await chat.sendMessage("Lo siento, ocurrió un error inesperado en mi sistema. Ya estoy trabajando para solucionarlo.");
     }
 });
 
