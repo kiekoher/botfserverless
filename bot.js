@@ -8,7 +8,7 @@ import qrcode from 'qrcode-terminal';
 import { processRagQuery } from './src/services/ragGeminiService.js';
 import { classifyAndExtract } from './src/services/geminiClassifier.js'; // <-- CAMBIO IMPORTANTE
 import { sendHumanResponse } from './src/utils/humanBehavior.js';
-import { logConversation } from './src/services/dbOperations.js';
+import { logConversation } from './src/services/supabaseClient.js';
 
 console.log("🚀 Iniciando Orquestador EVA (Todo-Gemini)...");
 
