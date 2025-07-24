@@ -1,20 +1,32 @@
 services:
-  ingest:
-    build: .
-    container_name: dueloanimalbot_ingest
+  bot:
+    build:
+      context: .
+      # Especifica que debe usar el Dockerfile principal
+      dockerfile: Dockerfile
+    container_name: dueloanimalbot_bot
+    volumes:
+      - ./.wwebjs_auth:/app/.wwebjs_auth
+      - ./qr:/app/qr
     restart: unless-stopped
-    env_file: .env
-    user: root
+    env_file:
+      - .env
+    # El comando por defecto del Dockerfile iniciará bot.cjs, así que no necesitamos especificarlo.
+
+  ingest:
+    build:
+      context: .
+      # --- INICIO DE LA CORRECCIÓN ---
+      # Apunta al mismo Dockerfile que el bot.
+      dockerfile: Dockerfile
+    container_name: dueloanimalbot_ingest
     volumes:
       - ./documentos:/app/documentos
       - ./jsonl_output:/app/jsonl_output
-    command: node auto_ingest.cjs
-
-  bot:
-    build: .
-    container_name: dueloanimalbot_bot
     restart: unless-stopped
-    env_file: .env
-    volumes:
-      - ./.wwebjs_auth:/app/.wwebjs_auth
-    command: node bot.cjs
+    env_file:
+      - .env
+    # Le decimos a este servicio que, en lugar del comando por defecto, ejecute el script de ingesta.
+    command: "node auto_ingest.cjs"
+    # --- FIN DE LA CORRECCIÓN ---
+
