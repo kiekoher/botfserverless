@@ -1,9 +1,10 @@
 const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
+require('dotenv').config();
 
-const DOCUMENTS_DIR = '/app/documentos';
-const INTERVAL_MS = 5000;
+const DOCUMENTS_DIR = process.env.INGEST_DIR || '/app/documentos';
+const INTERVAL_MS = parseInt(process.env.INGEST_INTERVAL_MS, 10) || 5000;
 
 console.log(`👀 Observando carpeta: ${DOCUMENTS_DIR}`);
 
