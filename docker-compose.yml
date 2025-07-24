@@ -16,4 +16,4 @@ services:
     env_file: .env
     volumes:
       - ./.wwebjs_auth:/app/.wwebjs_auth
-    command: node bot.js
+    command: node bot.cjs

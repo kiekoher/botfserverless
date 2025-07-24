@@ -21,4 +21,4 @@ COPY . .
 RUN chown -R botuser:botuser /app
 USER botuser
 
-CMD [ "node", "bot.js" ]
+CMD [ "node", "bot.cjs" ]
