@@ -1,2 +1,24 @@
-2025/07/23-23:59:36.108 15 Creating DB /app/.wwebjs_auth/session/Default/IndexedDB/https_web.whatsapp.com_0.indexeddb.leveldb since it was missing.
-2025/07/23-23:59:36.113 15 Reusing MANIFEST /app/.wwebjs_auth/session/Default/IndexedDB/https_web.whatsapp.com_0.indexeddb.leveldb/MANIFEST-000001
+2025/07/24-00:47:29.709 18 Reusing MANIFEST /app/.wwebjs_auth/session/Default/IndexedDB/https_web.whatsapp.com_0.indexeddb.leveldb/MANIFEST-000001
+2025/07/24-00:47:29.709 18 Recovering log #62
+2025/07/24-00:47:29.717 18 Reusing old log /app/.wwebjs_auth/session/Default/IndexedDB/https_web.whatsapp.com_0.indexeddb.leveldb/000062.log 
+2025/07/24-00:47:29.717 18 Delete type=2 #58
+2025/07/24-00:47:29.717 18 Delete type=2 #64
+2025/07/24-00:47:30.868 24 Level-0 table #68: started
+2025/07/24-00:47:30.871 24 Level-0 table #68: 107167 bytes OK
+2025/07/24-00:47:30.872 24 Delete type=0 #62
+2025/07/24-00:47:30.873 24 Manual compaction at level-0 from '\x00\x1f\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00 \x00\x00\x00' @ 0 : 0; will stop at (end)
+2025/07/24-00:47:30.874 3f Level-0 table #70: started
+2025/07/24-00:47:30.875 3f Level-0 table #70: 648 bytes OK
+2025/07/24-00:47:30.876 3f Delete type=0 #67
+2025/07/24-00:47:30.876 1c Manual compaction at level-0 from '\x00 \x00\x00\x00' @ 72057594037927935 : 1 .. '\x00!\x00\x00\x00' @ 0 : 0; will stop at '\x00 \x00\x00\x05' @ 111598 : 0
+2025/07/24-00:47:30.876 1c Compacting 1@0 + 1@1 files
+2025/07/24-00:47:30.882 1c Generated table #71@0: 3181 keys, 66738 bytes
+2025/07/24-00:47:30.882 1c Compacted 1@0 + 1@1 files => 66738 bytes
+2025/07/24-00:47:30.883 1c compacted to: files[ 0 1 1 0 0 0 0 ]
+2025/07/24-00:47:30.883 1c Delete type=2 #70
+2025/07/24-00:47:30.883 1c Manual compaction at level-0 from '\x00 \x00\x00\x05' @ 111598 : 0 .. '\x00!\x00\x00\x00' @ 0 : 0; will stop at (end)
+2025/07/24-00:47:32.766 47 Compacting 1@1 + 1@2 files
+2025/07/24-00:47:32.800 47 Generated table #72@1: 23089 keys, 893284 bytes
+2025/07/24-00:47:32.801 47 Compacted 1@1 + 1@2 files => 893284 bytes
+2025/07/24-00:47:32.802 47 compacted to: files[ 0 0 1 0 0 0 0 ]
+2025/07/24-00:47:32.804 47 Delete type=2 #68
