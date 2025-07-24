@@ -63,7 +63,7 @@ async function processJsonlFile(filePath) {
     for (const line of lines) {
         try {
             const data = JSON.parse(line);
-            const text = data.content || '';
+            const text = data.text || '';
 
             // Solo procesamos si hay texto
             if (text && text.trim() !== '') {
