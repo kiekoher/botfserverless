@@ -54,7 +54,8 @@ docker compose logs -f eva_ingest
 
 ## 🧪 Tests
 
-Instala las dependencias y ejecuta las pruebas con:
+Antes de correr las pruebas, ejecuta `npm install` para instalar las dependencias.
+Luego lanza las pruebas con:
 
 ```bash
 npm install
