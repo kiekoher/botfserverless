@@ -4,7 +4,7 @@ services:
       context: .
       # Especifica que debe usar el Dockerfile principal
       dockerfile: Dockerfile
-    container_name: dueloanimalbot_bot
+    container_name: crezgobot_bot
     volumes:
       - ./.wwebjs_auth:/app/.wwebjs_auth
       - ./qr:/app/qr
@@ -19,7 +19,7 @@ services:
       # --- INICIO DE LA CORRECCIÓN ---
       # Apunta al mismo Dockerfile que el bot.
       dockerfile: Dockerfile
-    container_name: dueloanimalbot_ingest
+    container_name: crezgobot_ingest
     volumes:
       - ./documentos:/app/documentos
       - ./jsonl_output:/app/jsonl_output

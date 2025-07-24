@@ -1,7 +1,7 @@
 {
-  "name": "dueloanimalbot",
+  "name": "crezgobot",
   "version": "1.0.0",
-  "description": "Chatbot de duelo animal con embeddings Gemini y Supabase",
+  "description": "Chatbot de consultoría para pymes con Gemini y Supabase",
   "main": "bot.cjs",
   "type": "module",
   "scripts": {

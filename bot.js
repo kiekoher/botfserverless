@@ -57,9 +57,9 @@ client.on('message', async (message) => {
         } else if (classification.decision === 'use_tool') {
             // Lógica de herramientas (simplificada por ahora)
             if (classification.tool_call.name === 'get_service_info') {
-                botResponse = "Claro, te cuento sobre mis servicios. Ofrezco acompañamiento individual para duelo anticipado y posterior al fallecimiento. La sesión inicial es de 80 minutos para conocernos bien, y luego tenemos sesiones de seguimiento. ¿Te gustaría saber los precios?";
+                botResponse = "Con gusto, te cuento sobre los servicios de Crezgo: estrategia empresarial, finanzas, marketing digital y outsourcing financiero. ¿Hay algún área específica que quieras fortalecer?";
             } else {
-                botResponse = "Entiendo que quieres agendar una cita. Para coordinarlo, por favor indícame qué tipo de sesión te interesa: ¿inicial, de seguimiento o un paquete?";
+                botResponse = "Perfecto, puedo ayudarte a agendar una llamada de diagnóstico. ¿Qué día y hora te convienen para que uno de nuestros asesores te contacte?";
             }
         } else {
             botResponse = "Disculpa, no te he entendido bien. ¿Podrías explicármelo de otra manera?";
@@ -71,7 +71,7 @@ client.on('message', async (message) => {
         // Actualizar historial y logs
         let history = conversations.get(userId) || [];
         history.push({ sender: 'Usuario', message: userQuery });
-        history.push({ sender: 'Natalia', message: botResponse });
+        history.push({ sender: 'CrezgoBot', message: botResponse });
         conversations.set(userId, history.slice(-20));
         
         await logConversation(

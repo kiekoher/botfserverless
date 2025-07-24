@@ -1,6 +1,6 @@
-# 🤖 DueloAnimalBot – RAG sensible al duelo con Gemini, Supabase y Mistral (dockerizado)
+# 🤖 CrezgoBot – Chatbot para pymes con RAG usando Gemini y Supabase (dockerizado)
 
-Este proyecto implementa un bot de respuesta automática sensible al duelo animal, utilizando arquitectura RAG (retrieval-augmented generation) completamente dockerizada:
+Este proyecto implementa un bot de atención al cliente y ventas para la firma de consultoría **Crezgo**. Se basa en una arquitectura RAG (retrieval-augmented generation) completamente dockerizada:
 
 - 📁 Ingesta automática de documentos desde `/documentos`
 - 📄 Conversión y validación `.txt` ➜ `.jsonl`
