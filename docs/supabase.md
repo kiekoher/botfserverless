@@ -6,6 +6,8 @@ Antes de crear las tablas es necesario habilitar la extensión para vectores. Ab
 create extension if not exists vector;
 ```
 
+**Nota:** este comando debe ejecutarse desde el SQL editor de Supabase.
+
 Luego crea las tablas que almacenarán los documentos, sus embeddings y el historial de conversaciones. A continuación se muestra un ejemplo básico:
 
 ```sql
