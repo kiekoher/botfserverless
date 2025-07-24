@@ -27,7 +27,6 @@ sudo apt install -y docker.io docker-compose
    - `GEMINI_API_KEY`: clave de API para Gemini.
    - `SUPABASE_URL` y `SUPABASE_KEY`: credenciales de tu proyecto Supabase.
    - `SUPABASE_SERVICE_KEY`: clave de servicio para ingestión.
-   - `REDIS_URL` (opcional): URL de conexión a Redis. Por defecto es `redis://redis:6379`.
 
 ## 🧪 Tests
 
