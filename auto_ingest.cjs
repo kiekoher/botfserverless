@@ -9,8 +9,9 @@ console.log(`👀 Observando carpeta: ${DOCUMENTS_DIR}`);
 
 let processedFiles = new Set();
 
-const isTextFile = (filename) => {
-  return filename.endsWith('.txt');
+const isSupportedFile = (filename) => {
+  const ext = path.extname(filename).toLowerCase();
+  return ['.txt', '.pdf', '.docx'].includes(ext);
 };
 
 const runScript = (script, args = []) => {
@@ -60,7 +61,7 @@ const pollDirectory = () => {
       return;
     }
 
-    files.filter(isTextFile).forEach(processFile);
+    files.filter(isSupportedFile).forEach(processFile);
   });
 };
 
