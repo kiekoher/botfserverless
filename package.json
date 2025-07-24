@@ -2,10 +2,10 @@
   "name": "dueloanimalbot",
   "version": "1.0.0",
   "description": "Chatbot de duelo animal con embeddings Gemini y Supabase",
-  "main": "bot.js",
+  "main": "bot.cjs",
   "type": "module",
   "scripts": {
-    "start": "node bot.js",
+    "start": "node bot.cjs",
     "embed": "node load_and_embed.cjs",
     "convert": "node converter.cjs",
     "test": "mocha tests"
