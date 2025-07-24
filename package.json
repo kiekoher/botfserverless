@@ -22,6 +22,8 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
-    "mocha": "^11.7.1"
+    "esmock": "^2.7.1",
+    "mocha": "^11.7.1",
+    "sinon": "^21.0.0"
   }
 }
