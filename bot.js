@@ -6,7 +6,8 @@ import pkg from 'whatsapp-web.js';
 const { Client, LocalAuth } = pkg;
 import qrcode from 'qrcode-terminal';
 import { processRagQuery } from './src/services/ragGeminiService.js';
-import { classifyAndExtract } from './src/services/geminiClassifier.js'; // <-- CAMBIO IMPORTANTE
+import { classifyAndExtract } from './src/services/geminiClassifier.js';
+// Keep track of classifier behavior during beta rollout
 import { sendHumanResponse } from './src/utils/humanBehavior.js';
 import { getClarificationMessage } from './src/utils/helpers.js';
 import { logConversation } from './src/services/supabaseClient.js';
