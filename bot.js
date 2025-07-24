@@ -8,6 +8,7 @@ import qrcode from 'qrcode-terminal';
 import { processRagQuery } from './src/services/ragGeminiService.js';
 import { classifyAndExtract } from './src/services/geminiClassifier.js'; // <-- CAMBIO IMPORTANTE
 import { sendHumanResponse } from './src/utils/humanBehavior.js';
+import { getClarificationMessage } from './src/utils/helpers.js';
 import { logConversation } from './src/services/supabaseClient.js';
 
 console.log("🚀 Iniciando Orquestador EVA (Todo-Gemini)...");
@@ -62,7 +63,7 @@ client.on('message', async (message) => {
                 botResponse = "Perfecto, puedo ayudarte a agendar una llamada de diagnóstico. ¿Qué día y hora te convienen para que uno de nuestros asesores te contacte?";
             }
         } else {
-            botResponse = "Disculpa, no te he entendido bien. ¿Podrías explicármelo de otra manera?";
+            botResponse = getClarificationMessage();
         }
         
         await sendHumanResponse(chat, botResponse);

@@ -24,3 +24,19 @@ export const randomInt = (min, max) => {
 export const sleep = (ms) => {
     return new Promise(resolve => setTimeout(resolve, ms));
 };
+
+/**
+ * Devuelve un mensaje aleatorio solicitando al usuario que aclare su consulta.
+ * Utiliza un conjunto de frases corteses para mantener la variedad.
+ * @returns {string} Un mensaje de clarificación.
+ */
+export const getClarificationMessage = () => {
+    const phrases = [
+        'Disculpa, no estoy seguro de haber entendido. ¿Podrías explicarlo de otra forma?',
+        'Perdona, creo que me he perdido. ¿Me lo repites por favor?',
+        'Lo siento, ¿puedes aclarar un poco más tu pregunta?',
+        'No comprendí bien, ¿podrías detallarlo nuevamente?',
+        'Perdón, no entendí. ¿Podrías decirlo de otra manera?'
+    ];
+    return phrases[randomInt(0, phrases.length - 1)];
+};
