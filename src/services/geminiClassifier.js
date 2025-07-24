@@ -12,17 +12,17 @@ const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
 export const classifyAndExtract = async (userMessage) => {
     const prompt = `
-    Analiza el siguiente mensaje de un usuario que habla con una psicóloga experta en duelo animal.
+    Analiza el siguiente mensaje de un usuario que consulta a un asesor de Crezgo sobre estrategia, finanzas o marketing.
     Tu tarea es clasificar la intención y decidir la acción más apropiada.
     Las acciones posibles son:
-    1.  'use_rag': Si el usuario está expresando sentimientos, haciendo una pregunta general sobre el duelo, o iniciando una conversación. Esta es la opción por defecto.
-    2.  'use_tool': Si el usuario pide explícitamente información sobre precios, servicios, o quiere agendar una cita.
+    1.  'use_rag': Si el usuario hace una pregunta general sobre servicios, herramientas o conceptos de negocio. Esta es la opción por defecto.
+    2.  'use_tool': Si el usuario pide estimaciones, quiere agendar asesoría o solicita información muy específica.
     3.  'clarify': Si el mensaje es ambiguo o no se entiende.
 
     Si decides 'use_tool', también debes identificar el nombre de la herramienta y sus argumentos.
     Herramientas disponibles:
-    -   'get_service_info': Proporciona detalles sobre los servicios. No necesita argumentos.
-    -   'schedule_appointment': Inicia el proceso para agendar una cita. Argumentos: { "service_type": "inicial | seguimiento | paquete" }
+    -   'get_service_info': Proporciona detalles de los servicios de Crezgo. No necesita argumentos.
+    -   'schedule_appointment': Inicia el proceso para agendar una llamada. Argumentos: { "service_type": "consultoria" }
 
     Finalmente, crea un resumen claro del mensaje del usuario para usarlo en la búsqueda RAG.
 

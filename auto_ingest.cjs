@@ -32,11 +32,13 @@ const processFile = async (filename) => {
 
   const filepath = path.join(DOCUMENTS_DIR, filename);
   if (!fs.existsSync(filepath)) return;
+  const outputPath = path.join('/app/jsonl_output',
+    path.parse(filename).name + '.jsonl');
 
   try {
     console.log(`📄 Detectado nuevo archivo: ${filename}`);
     console.log(`🔁 Ejecutando conversión...`);
-    await runScript('converter.cjs', [filepath]);
+    await runScript('converter.cjs', [filepath, outputPath]);
 
     console.log(`✅ Validando JSONL...`);
     await runScript('validate_jsonl.cjs');

@@ -21,8 +21,8 @@ const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 async function classifyMessageWithGemini(text) {
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
     const prompt = `
-    Clasifica el siguiente texto de la base de conocimiento de una psicóloga experta en duelo animal.
-    Identifica la intención y extrae entidades.
+    Clasifica el siguiente texto perteneciente a la base de conocimiento de Crezgo.
+    Identifica la intención y extrae entidades relevantes para consultoría y ventas a pymes.
     Texto: "${text}"
     Devuelve solo un objeto JSON: {"intent": "...", "entities": {...}}.
     `;

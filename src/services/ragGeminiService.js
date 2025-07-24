@@ -1,10 +1,10 @@
 // =====================================================================
-// == CEREBRO HÍBRIDO CON MEMORIA CONVERSACIONAL (Personalidad Natalia) ==
+// == CEREBRO HÍBRIDO CON MEMORIA CONVERSACIONAL (CrezgoBot)           ==
 // =====================================================================
 import 'dotenv/config';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { supabase } from './supabaseClient.js';
-import BOT_PERSONA_NATALIA from '../config/persona.js';
+import BOT_PERSONA from '../config/persona.js';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const embeddingModel = genAI.getGenerativeModel({ model: "embedding-001" });
@@ -39,7 +39,7 @@ export const processRagQuery = async (userQuery, conversationHistory) => {
     const queryEmbedding = await getEmbedding(userQuery);
     if (!queryEmbedding) {
         // Respuesta por defecto si no se puede generar el embedding
-        return { response: "Hola, soy Natalia Jaller. Te doy la bienvenida a este espacio seguro. Estoy aquí para escucharte.", context: [] };
+        return { response: "Hola, soy tu asesor de Crezgo. ¿En qué puedo ayudarte hoy?", context: [] };
     }
 
     // Llama a la función de Supabase para encontrar los chunks de texto más similares
@@ -59,14 +59,14 @@ export const processRagQuery = async (userQuery, conversationHistory) => {
 
     if (error || !chunks || chunks.length === 0) {
         // Si no se encuentra contexto, se genera una respuesta basada solo en la persona y el historial
-        prompt = `${BOT_PERSONA_NATALIA}\n\n### CONVERSACIÓN ACTUAL\n${historyText}\n**Usuario:** ${userQuery}\n\n### INSTRUCCIÓN\nNo se encontró información específica en los documentos. Responde al usuario basándote en el historial y tu rol como Natalia. Continúa la conversación de forma empática y orientadora.`;
+        prompt = `${BOT_PERSONA}\n\n### CONVERSACIÓN ACTUAL\n${historyText}\n**Usuario:** ${userQuery}\n\n### INSTRUCCIÓN\nNo se encontró información específica en los documentos. Responde al usuario basándote en el historial y tu rol de asesor de Crezgo.`;
     
     } else {
         // Si se encuentra contexto, se construye un prompt más completo
         const contextText = chunks.map(c => c.content_text).join('\n\n---\n\n');
         contextForLog = chunks.map(c => c.content_text);
         
-        prompt = `${BOT_PERSONA_NATALIA}\n\n### CONVERSACIÓN ACTUAL\n${historyText}\n**Usuario:** ${userQuery}\n\n### INFORMACIÓN DE APOYO (Contexto Adicional)\n\`\`\`\n${contextText}\n\`\`\`\n\n### INSTRUCCIÓN\nUsando el historial y la información de apoyo, responde como Natalia de forma cálida, profesional y natural. Integra la información, no la cites directamente.`;
+        prompt = `${BOT_PERSONA}\n\n### CONVERSACIÓN ACTUAL\n${historyText}\n**Usuario:** ${userQuery}\n\n### INFORMACIÓN DE APOYO (Contexto Adicional)\n\`\`\`\n${contextText}\n\`\`\`\n\n### INSTRUCCIÓN\nUsando el historial y la información de apoyo, responde como asesor de Crezgo de forma cercana y profesional. Integra la información, no la cites directamente.`;
     }
 
     try {

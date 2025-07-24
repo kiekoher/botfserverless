@@ -37,6 +37,9 @@ async function convertFileToJsonl(inputPath, outputPath) {
       throw new Error('Se requieren las rutas de los archivos de entrada y salida.');
     }
 
+    // Asegura que el directorio de salida exista
+    await fs.mkdir(path.dirname(outputPath), { recursive: true });
+
     // Obtiene la extensión del archivo para determinar cómo procesarlo.
     const extension = path.extname(inputPath).toLowerCase();
     let textContent; // Variable para almacenar el texto extraído.
