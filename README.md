@@ -75,3 +75,7 @@ docker compose up --build -d
 
 Esto asegurará que se utilicen los nombres de contenedor definidos en
 `docker-compose.yml` (como `eva_bot` y `eva_ingest`).
+
+## Licencia
+
+Este proyecto se distribuye bajo la licencia MIT. Consulta el archivo [LICENSE](LICENSE) para obtener más información.
