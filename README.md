@@ -30,6 +30,8 @@ sudo apt install -y docker.io docker-compose
    - `SUPABASE_URL` y `SUPABASE_KEY`: credenciales de tu proyecto Supabase.
 
    - `SUPABASE_SERVICE_KEY`: clave de servicio para ingestión.
+   - `INGEST_DIR`: (opcional) ruta donde se monitorean los documentos a procesar. Por defecto `/app/documentos`.
+   - `INGEST_INTERVAL_MS`: (opcional) intervalo en milisegundos entre verificaciones de nuevos archivos. Por defecto `5000`.
 
 ## ▶️ Inicio de servicios
 
