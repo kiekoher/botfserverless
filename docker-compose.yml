@@ -1,42 +1,82 @@
-services:
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: crezgo_backend
-    restart: unless-stopped
-    env_file:
-      - .env
-    volumes:
-      - ./backend:/app
-    ports:
-      - "8000:8000" # For local development and debugging
+version: '3.8'
 
-  whatsapp:
+services:
+  redis:
+    image: redis:7.2-alpine
+    container_name: eva_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+
+  main-api:
     build:
-      context: ./whatsapp
+      context: ./services/main-api
       dockerfile: Dockerfile
-    container_name: crezgo_whatsapp
+    container_name: eva_main_api
     restart: unless-stopped
     env_file:
       - .env
     volumes:
-      # Mount a volume to persist the WhatsApp session data
-      - whatsapp_session:/app/.wwebjs_auth
+      - ./services/main-api/app:/app/app
+    ports:
+      - "8000:8000"
     depends_on:
-      - nginx
+      - redis
+
+  whatsapp-gateway:
+    build:
+      context: ./services/whatsapp-gateway
+      dockerfile: Dockerfile
+    container_name: eva_whatsapp_gateway
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - whatsapp_session:/app/
+    depends_on:
+      - redis
+
+  transcription-worker:
+    build:
+      context: ./services/transcription-worker
+      dockerfile: Dockerfile
+    container_name: eva_transcription_worker
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./services/transcription-worker/app:/app/app
+    depends_on:
+      - redis
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+        - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+    container_name: eva_frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    depends_on:
+      - main-api
 
   nginx:
     build:
       context: ./nginx
       dockerfile: Dockerfile
-    container_name: crezgo_nginx
+    container_name: eva_nginx
     restart: unless-stopped
     ports:
       - "80:80"
       - "443:443"
     depends_on:
-      - backend
+      - main-api
+      - frontend
 
 volumes:
   whatsapp_session:
