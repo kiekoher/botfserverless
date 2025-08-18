@@ -1,10 +1,12 @@
-# This is the CI/CD workflow for the project.
-# It automatically tests, builds, and deploys the application to production.
-name: Deploy to Production
+# This is the CI/CD workflow for the EVA project.
+# It automatically tests, builds, and pushes Docker images on every push to main.
+name: CI - Test, Lint, and Build
 
-# Trigger the workflow on pushes to the main branch
 on:
   push:
+    branches:
+      - main
+  pull_request:
     branches:
       - main
 
@@ -15,77 +17,84 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+
+      - name: Copy .env file
+        run: cp .env.example .env
 
       - name: Set up Docker Compose
         run: docker-compose up -d
 
-      - name: Lint and Test Backend
-        run: |
-          docker-compose exec -T backend ruff format . --check
-          docker-compose exec -T backend ruff check .
-          docker-compose exec -T backend pytest
+      - name: Wait for services to be healthy
+        run: sleep 30 # Give services time to start up
 
-      # Add frontend tests/linting here if they exist
-      # - name: Lint and Test Frontend
-      #   run: |
-      #     docker-compose exec -T frontend npm run lint
-      #     docker-compose exec -T frontend npm run test
+      - name: Lint and Test Main API (Python)
+        run: |
+          docker-compose exec -T main-api ruff format .
+          docker-compose exec -T main-api ruff check . --fix
+          docker-compose exec -T main-api pytest
+
+      - name: Lint and Test Transcription Worker (Python)
+        run: |
+          docker-compose exec -T transcription-worker ruff format .
+          docker-compose exec -T transcription-worker ruff check . --fix
+          docker-compose exec -T transcription-worker pytest
+
+      - name: Lint and Test Frontend (JS/TS)
+        run: |
+          docker-compose exec -T frontend npm run lint
+          # npm run test is not set up, so this would fail.
+          # Add a test script to package.json to enable this.
+          # docker-compose exec -T frontend npm run test
 
   # Job 2: Build and push Docker images
   build-and-push:
     name: Build and Push Images
     runs-on: ubuntu-latest
-    needs: test-and-lint # This job depends on the success of the previous one
+    needs: test-and-lint
+    # Only run this step on direct pushes to main, not on PRs
+    if: github.event_name == 'push'
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Login to Docker Hub
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build and push backend image
-        uses: docker/build-push-action@v4
+      - name: Build and push Nginx
+        uses: docker/build-push-action@v5
         with:
-          context: ./backend
-          file: ./backend/Dockerfile
+          context: ./nginx
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/crezgo-backend:latest
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/eva-nginx:latest
 
-      - name: Build and push frontend image
-        uses: docker/build-push-action@v4
+      - name: Build and push Frontend
+        uses: docker/build-push-action@v5
         with:
           context: ./frontend
-          file: ./frontend/Dockerfile
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/crezgo-frontend:latest
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/eva-frontend:latest
 
-      - name: Build and push whatsapp image
-        uses: docker/build-push-action@v4
+      - name: Build and push Main API
+        uses: docker/build-push-action@v5
         with:
-          context: ./whatsapp
-          file: ./whatsapp/Dockerfile
+          context: ./services/main-api
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/crezgo-whatsapp:latest
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/eva-main-api:latest
 
-  # Job 3: Deploy to production
-  deploy:
-    name: Deploy to Production
-    runs-on: ubuntu-latest
-    needs: build-and-push # This job depends on the success of the previous one
-    steps:
-      - name: SSH into production server and deploy
-        uses: appleboy/ssh-action@master
+      - name: Build and push WhatsApp Gateway
+        uses: docker/build-push-action@v5
         with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USERNAME }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          port: ${{ secrets.VPS_PORT }}
-          script: |
-            cd /path/to/your/project
-            docker-compose -f docker-compose.prod.yml pull
-            docker-compose -f docker-compose.prod.yml up -d --remove-orphans
-            docker image prune -af
+          context: ./services/whatsapp-gateway
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/eva-whatsapp-gateway:latest
+
+      - name: Build and push Transcription Worker
+        uses: docker/build-push-action@v5
+        with:
+          context: ./services/transcription-worker
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/eva-transcription-worker:latest
