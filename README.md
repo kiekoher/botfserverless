@@ -1,84 +1,74 @@
-# 🤖 CrezgoBot – Chatbot para pymes con RAG usando Gemini y Supabase (dockerizado)
+# Crezgo AI Bot - Refactored Architecture
 
-Este proyecto implementa un bot de atención al cliente y ventas para la firma de consultoría **Crezgo**. Se basa en una arquitectura RAG (retrieval-augmented generation) completamente dockerizada:
+This project is an AI-powered chatbot for the consulting firm **Crezgo**. It has been refactored into a modern, multi-service architecture to improve scalability, maintainability, and separation of concerns, following the principles of Clean Architecture.
 
-- 📁 Ingesta automática de documentos desde `/documentos`
-- 📄 Conversión y validación `.txt` ➜ `.jsonl`
-- 🧠 Clasificación con Gemini (vía API)
-- 🧩 Inserción y embeddings en Supabase (generados con Gemini)
-- 💬 Generación de respuestas contextualizadas con Gemini
+The system is composed of three main services orchestrated by Docker Compose:
 
-Tanto los embeddings como la clasificación se realizan mediante las APIs de Gemini.
+1.  **`backend` (Python/FastAPI):** The core of the application. It handles all business logic, including intent classification, Retrieval-Augmented Generation (RAG) from a knowledge base, and interactions with external services like Google Gemini and Supabase. It exposes a REST API.
+2.  **`whatsapp` (Node.js/whatsapp-web.js):** The communication layer. This service acts as an adapter, connecting to WhatsApp using `whatsapp-web.js`. It receives messages from users and forwards them to the `backend` service for processing, then sends the response back to the user. It includes anti-detection mechanisms to ensure stability.
+3.  **`nginx` (Nginx):** The reverse proxy. It routes incoming requests to the appropriate service. All API calls to `/api/` are directed to the `backend` service.
 
 ---
 
-## 🚀 Instalación automática en VPS
+## 🚀 Getting Started
 
-1. Instala Docker y Docker Compose:
+### 1. Prerequisites
 
-```bash
-sudo apt update
-sudo apt install -y docker.io docker-compose
-```
+- Docker
+- Docker Compose
 
-## 📄 Variables de entorno
+### 2. Environment Variables
 
-1. Copia el archivo `.env.example` a `.env`.
-2. Completa los valores requeridos:
-
-   - `GEMINI_API_KEY`: clave de API para Gemini, utilizada para los embeddings y la clasificación.
-   - `SUPABASE_URL` y `SUPABASE_KEY`: credenciales de tu proyecto Supabase.
-
-   - `SUPABASE_SERVICE_KEY`: clave de servicio para ingestión.
-   - `INGEST_DIR`: (opcional) ruta donde se monitorean los documentos a procesar. Por defecto `/app/documentos`.
-   - `INGEST_INTERVAL_MS`: (opcional) intervalo en milisegundos entre verificaciones de nuevos archivos. Por defecto `5000`.
-
-## ▶️ Inicio de servicios
-
-1. Crea las carpetas necesarias antes de levantar los contenedores:
+First, create a `.env` file from the example provided:
 
 ```bash
-mkdir -p documentos jsonl_output
+cp .env.example .env
 ```
 
-2. Arranca los servicios en segundo plano (construyendo las imágenes la primera vez):
+Next, open the `.env` file and fill in the required values:
+
+-   `SUPABASE_URL`: Your project's Supabase URL.
+-   `SUPABASE_KEY`: Your project's Supabase service role key (this key has admin privileges).
+-   `GOOGLE_API_KEY`: Your API key for Google AI Studio (Gemini).
+
+The `BACKEND_URL` is pre-configured for the Docker network and should not need to be changed.
+
+### 3. Running the System
+
+To build and run all services in detached mode, use the following command:
 
 ```bash
-docker compose up --build -d
+docker-compose up --build -d
 ```
 
-3. Si algo falla, revisa los logs de cada servicio con:
+When you run the system for the first time, the `whatsapp` service will output a QR code in its logs. You need to scan this QR code with your phone to connect the bot to your WhatsApp account.
+
+To view the logs for a specific service (e.g., to see the QR code from the `whatsapp` service):
 
 ```bash
-docker compose logs -f eva_bot
-docker compose logs -f eva_ingest
+docker-compose logs -f whatsapp
 ```
 
-## 🧪 Tests
-
-Antes de correr las pruebas, **es obligatorio ejecutar `npm install`** para instalar las dependencias.
-Luego lanza las pruebas con:
+Or to see the logs for the backend:
 
 ```bash
-npm install
-npm test
+docker-compose logs -f backend
 ```
 
-## ❗ Limpieza de contenedores antiguos
+---
 
-Si al ejecutar `docker compose up` ves nombres de contenedores
-relacionados con proyectos anteriores (por ejemplo `dueloanimalbot_bot`),
-es probable que existan contenedores residuales en tu sistema.
-Detén y elimina los servicios previos antes de volver a construir:
+## 🧪 Testing
+
+The backend service includes a suite of tests using `pytest`. To run the tests, you can execute the following command from the root directory:
 
 ```bash
-docker compose down
-docker compose up --build -d
+docker-compose exec backend pytest
 ```
 
-Esto asegurará que se utilicen los nombres de contenedor definidos en
-`docker-compose.yml` (como `eva_bot` y `eva_ingest`).
+This will run all tests inside the running `backend` container.
 
-## Licencia
+---
 
-Este proyecto se distribuye bajo la licencia MIT. Consulta el archivo [LICENSE](LICENSE) para obtener más información.
+## ⚖️ License
+
+This project is distributed under the MIT License. See the `LICENSE` file for more information.
