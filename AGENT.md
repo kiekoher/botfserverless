@@ -1,137 +1,107 @@
-AGENT.MD: Manual de Operaciones para Jules
-Hola Jules. Este documento es tu guía principal y la fuente de verdad para interactuar con este repositorio. Has sido incorporado a nuestro equipo como un compañero de equipo asíncrono y autónomo. Tu éxito depende de tu capacidad para comprender y seguir meticulosamente las directrices aquí contenidas.
-Antes de realizar cualquier cambio, tu primer paso es siempre analizar este archivo en su totalidad. Utilízalo para formar tu "plan de acción", que presentarás para su revisión. La calidad de tu plan y del código resultante está directamente ligada a tu adhesión a este manual.
-1. Descripción General y Arquitectura del Proyecto
-Este proyecto es una plataforma de agentes conversacionales multi-tenant, diseñada para ser robusta, escalable y segura. La arquitectura está completamente dockerizada para unificar los entornos de desarrollo y producción.
-La arquitectura se compone de tres servicios principales orquestados por docker-compose.yml:
- * backend (Python/FastAPI): El Cerebro - "El Santo Grial"
+AGENT.MD: Constitución del Proyecto y Directiva de Refactorización Autónoma
+Hola Jules.
+Este documento es tu directiva principal e inmutable. Vas a realizar una refactorización completa y autónoma de este repositorio. El objetivo es alinear la base de código existente con la arquitectura y los principios definidos en esta Constitución.
+Tu tarea no es simplemente arreglar o añadir, sino reestructurar, mover, eliminar y reescribir código para que se adhiera perfectamente a este manifiesto. Este AGENT.md es tu única fuente de verdad. El éxito de tu misión se medirá por cuán fielmente el código final refleja estas reglas. No pidas aclaraciones; las ambigüedades deben resolverse aplicando el principio de menor complejidad y la filosofía de "Clean Architecture".
+Tu Misión: Refactorización Autónoma Completa.
+1. Arquitectura de Destino: El Manifiesto
+La arquitectura actual debe ser demolida y reconstruida para seguir este plano.
+ * backend (Python/FastAPI) - El Núcleo Limpio:
    * Ubicación: /backend
-   * Descripción: Es una API de Python que utiliza el framework FastAPI. Implementa toda la lógica de IA, incluyendo el componente central aiRouter. Este orquestador direcciona las solicitudes al motor de IA especializado correcto (Gemini para chat en tiempo real, DeepSeek para análisis, OpenAI para embeddings, etc.). Es responsable de toda la lógica de negocio y la comunicación con la base de datos.
-   * NO contiene lógica de frontend.
- * frontend (Next.js/TypeScript): El Dashboard de Control
+   * Principio No Negociable: Aplicarás una Arquitectura Limpia (Hexagonal).
+     * Crea un directorio backend/app/core que contendrá la lógica de negocio pura (entidades, casos de uso). Este código NO DEBE importar FastAPI, Pydantic, ni ninguna librería de base de datos. Será puro Python.
+     * Los endpoints de FastAPI en backend/app/api actuarán como "adaptadores de entrada". Su única función es recibir peticiones HTTP, validarlas usando Pydantic, llamar a los casos de uso del núcleo y devolver la respuesta.
+     * La interacción con Supabase será un "adaptador de salida". Crea un directorio backend/app/infrastructure o backend/app/adapters/persistence donde residirá todo el código que interactúa con la base de datos.
+ * frontend (Next.js/TypeScript) - El Dashboard Centrado en el Usuario:
    * Ubicación: /frontend
-   * Descripción: Es una aplicación Next.js (App Router) escrita en TypeScript. Proporciona la interfaz de usuario para que los clientes gestionen sus agentes de IA, configuren bases de conocimiento, vean conversaciones y controlen la configuración de seguridad. Se comunica con el backend a través de una API RESTful.
-   * NO contiene lógica de backend ni acceso directo a la base de datos, excepto para la autenticación del cliente.
- * proxy (Nginx): La Puerta de Entrada
+   * Principio No Negociable: Adopción estricta del App Router de Next.js.
+     * Migra cualquier componente de página del antiguo pages router si existiera.
+     * Prioriza Server Components para todo. Solo usa el pragma "use client" cuando sea absolutamente indispensable (hooks de estado, eventos de usuario).
+     * Cero lógica de negocio. El frontend es una capa de presentación. Toda la lógica de negocio, cálculos y decisiones se realizan en el backend y se consumen vía API.
+ * proxy (Nginx):
    * Ubicación: /nginx
-   * Descripción: Es un servidor Nginx que actúa como un reverse proxy. Dirige el tráfico de la API (ej. /api/v1/...) al servicio backend y todo el resto del tráfico al servicio frontend. En producción, también se encarga de la terminación SSL (HTTPS).
-Base de Datos y Almacenamiento:
- * Supabase (Cloud): Se utiliza como nuestra base de datos PostgreSQL y proveedor de autenticación. La multi-tenancy se implementa a nivel de base de datos mediante Row Level Security (RLS).
- * Cloudflare R2: Se utiliza para el almacenamiento de objetos (archivos grandes como PDFs, audios). La base de datos solo contiene metadatos y punteros a los objetos en R2.
-2. Estructura del Proyecto y Organización
-Tu capacidad para navegar el repositorio es crucial. Aquí está el mapa.
+   * Confirma que su única responsabilidad sea el enrutamiento basado en prefijos (/api/ al backend, el resto al frontend) y la terminación SSL en producción.
+Bases de Datos y Almacenamiento (Validación):
+ * Supabase (Postgres): Verifica que se use para datos estructurados y relacionales. Valida que la seguridad a nivel de fila (RLS) esté activada en todas las tablas que contienen datos de clientes.
+ * Cloudflare R2: Confirma que todos los archivos binarios (PDFs, audios, etc.) no estén en la base de datos. El código debe subirlos a R2 y la base de datos solo debe almacenar la URL o el identificador del objeto.
+2. Estructura de Directorios de Destino
+Refactoriza la estructura de archivos existente para que coincida exactamente con esta. Elimina cualquier archivo o directorio que no encaje en este esquema.
 /
-├── .env.example        # Plantilla para variables de entorno. NUNCA cometer el .env real.
-├── AGENT.md            # Este archivo. Tu fuente de verdad.
-├── docker-compose.yml  # Orquesta el inicio de todos los servicios.
-├── README.md           # Documentación general para desarrolladores humanos.
+├── .env.example
+├── AGENT.md            # Este archivo.
+├── docker-compose.yml
+├── README.md           # Actualízalo para reflejar la nueva arquitectura.
 │
-├── backend/            # Contenedor del servicio de backend (FastAPI)
-│   ├── app/            # Código fuente principal de la API
-│   │   ├── api/        # Endpoints/Rutas de la API (ej. chat, agentes)
-│   │   ├── core/       # Lógica de negocio principal (ej. aiRouter.py)
-│   │   ├── models/     # Modelos de datos Pydantic y esquemas de la DB
-│   │   ├── services/   # Clientes para servicios externos (Gemini, OpenAI, Supabase)
-│   │   └── main.py     # Punto de entrada de la aplicación FastAPI
-│   ├── tests/          # Pruebas unitarias y de integración para el backend
-│   ├── Dockerfile      # Instrucciones para construir la imagen Docker del backend
-│   └── requirements.txt # Dependencias de Python
+├── backend/
+│   ├── app/
+│   │   ├── api/        # Endpoints (Adaptadores de entrada).
+│   │   ├── core/
+│   │   │   ├── use_cases/
+│   │   │   └── entities/
+│   │   ├── infrastructure/ # Adaptadores de salida (DB, APIs externas).
+│   │   ├── models/     # Solo modelos Pydantic para la capa de API.
+│   │   └── main.py
+│   ├── tests/          # Reestructura las pruebas para reflejar la nueva arquitectura.
+│   ├── Dockerfile      # Optimízalo con builds multi-etapa.
+│   └── requirements.txt
 │
-├── frontend/           # Contenedor del servicio de frontend (Next.js)
+├── frontend/
 │   ├── src/
-│   │   ├── app/        # Rutas y páginas (Next.js App Router)
-│   │   ├── components/ # Componentes React reutilizables (construidos con Shadcn/ui)
-│   │   ├── lib/        # Funciones de utilidad, cliente Supabase, etc.
-│   │   └── styles/     # Estilos globales de CSS/Tailwind
-│   ├── public/         # Activos estáticos (imágenes, fuentes)
-│   ├── tests/          # Pruebas E2E (Playwright) y de componentes (Vitest)
-│   ├── Dockerfile      # Instrucciones para construir la imagen Docker del frontend
-│   ├── package.json    # Dependencias y scripts de Node.js
-│   └── tsconfig.json   # Configuración de TypeScript
+│   │   ├── app/        # Rutas y páginas (Server Components).
+│   │   ├── components/ # Componentes UI reutilizables (Shadcn/ui).
+│   │   ├── lib/        # Utilidades, cliente Supabase.
+│   │   └── styles/
+│   ├── tests/
+│   ├── Dockerfile      # Optimízalo con builds multi-etapa.
+│   ├── package.json
+│   └── tsconfig.json
 │
-└── nginx/              # Contenedor del proxy Nginx
-    ├── nginx.conf      # Configuración del servidor Nginx
-    └── Dockerfile      # Instrucciones para construir la imagen Docker de Nginx
+└── nginx/
+    ├── nginx.conf
+    └── Dockerfile
 
-3. Comandos de Compilación, Pruebas y Desarrollo
-Esta es la sección más crítica para tu operación autónoma. DEBES ejecutar estos comandos en tu entorno de VM para verificar tu propio trabajo antes de proponer cambios. Un PR con pruebas o linters fallidos no será aceptado.
+3. Comandos de Verificación y Validación
+Estos son los comandos que DEBES ejecutar para validar cada etapa de tu refactorización. Un paso no está completo hasta que todos los comandos relevantes pasen sin errores.
 3.1. Entorno Global (Docker)
-La única forma de ejecutar el sistema es a través de Docker Compose.
- * Levantar todo el sistema:
-   docker-compose up --build -d
+ * Levantar el sistema: docker-compose up --build -d
+ * Acceder a un servicio: docker-compose exec <backend|frontend> bash
+3.2. Backend (Python)
+ * Instalar/actualizar dependencias: pip install -r requirements.txt
+ * Verificación de Calidad de Código (OBLIGATORIO):
+   ruff format . && ruff check . --fix
 
- * Acceder a un servicio: Para ejecutar comandos específicos, accede al shell del contenedor correspondiente.
-   # Para el backend
-docker-compose exec backend bash
-# Para el frontend
-docker-compose exec frontend bash
-
-3.2. Comandos Específicos del Backend (Python)
-Ubicación para ejecutar: Dentro del contenedor backend.
- * Instalar/actualizar dependencias:
-   pip install -r requirements.txt
-
- * Verificar formato y linting (OBLIGATORIO): Usamos Ruff. Tu código debe pasar esta verificación.
-   # Formatear el código
-ruff format .
-# Verificar y corregir problemas de linting
-ruff check . --fix
-
- * Ejecutar todas las pruebas (OBLIGATORIO): Usamos Pytest. El resultado debe ser 100% exitoso.
+ * Ejecución de Pruebas (OBLIGATORIO):
    pytest
 
-3.3. Comandos Específicos del Frontend (TypeScript)
-Ubicación para ejecutar: Dentro del contenedor frontend.
- * Instalar/actualizar dependencias:
-   npm install
-
- * Verificar formato y linting (OBLIGATORIO): Usamos ESLint y Prettier.
+3.3. Frontend (TypeScript)
+ * Instalar/actualizar dependencias: npm install
+ * Verificación de Calidad de Código (OBLIGATORIO):
    npm run lint
 
- * Ejecutar pruebas de componentes/unitarias (OBLIGATORIO): Usamos Vitest.
-   npm run test:ci
+ * Ejecución de Pruebas (OBLIGATORIO):
+   npm run test:ci && npx playwright test
 
- * Ejecutar pruebas End-to-End (OBLIGATORIO): Usamos Playwright.
-   npx playwright test
-
-4. Estilo de Código y Convenciones
-La consistencia es fundamental. Tu código debe ser indistinguible del escrito por un humano del equipo.
+4. Estilo de Código y Convenciones (Reglas de Refactorización)
+Revisa cada línea de código existente y reescríbela si no cumple con estas reglas.
 4.1. Backend (Python/FastAPI)
- * Formato y Linting: La configuración de Ruff en pyproject.toml es la única fuente de verdad.
- * Type Hinting: TODO el código debe tener type hints de Python. El tipado estricto es obligatorio.
- * Modelos de Datos: Usa Pydantic para todos los modelos de API y validación.
- * Nomenclatura:
-   * Variables y funciones: snake_case.
-   * Clases: PascalCase.
- * Arquitectura: Sigue los principios de Clean Architecture. La lógica de negocio en app/core debe ser independiente del framework.
+ * Type Hinting Estricto: No debe quedar ninguna función o variable sin su tipo definido.
+ * Inyección de Dependencias: Usa Depends de FastAPI para inyectar las dependencias (como los adaptadores de la base de datos) en la capa de la API, que luego las pasará a los casos de uso del núcleo.
+ * Inmutabilidad: Prefiere estructuras de datos inmutables donde sea posible.
 4.2. Frontend (TypeScript/Next.js)
- * Formato y Linting: Las configuraciones en .eslintrc.json y .prettierrc son la única fuente de verdad.
- * TypeScript: Usa TypeScript en modo estricto. Evita el uso de any.
- * Componentes: Usa Server Components por defecto. Solo usa "use client" cuando sea estrictamente necesario.
- * Estilos: Usa Tailwind CSS para todos los estilos.
-5. Directrices de Pruebas
-"Lo que no se prueba, no funciona". Cualquier nueva funcionalidad o corrección de error debe ir acompañada de pruebas. Esta es una tarea ideal para ti.
- * Backend:
-   * Crea pruebas unitarias en backend/tests/unit.
-   * Crea pruebas de integración en backend/tests/integration.
-   * Mocks: Realiza mocks de TODAS las llamadas a APIs externas (Gemini, OpenAI, etc.).
- * Frontend:
-   * Crea pruebas de componentes/unitarias (*.test.tsx) con Vitest y React Testing Library.
-   * Crea pruebas End-to-End (*.spec.ts) con Playwright para simular flujos de usuario completos.
-6. Consideraciones de Seguridad
-La seguridad es nuestra máxima prioridad.
- * NUNCA HARDCODEAR SECRETOS: Nunca escribas claves de API, contraseñas o tokens directamente en el código. Utiliza siempre variables de entorno.
- * MULTI-TENANCY (RLS): Toda consulta a la base de datos desde el backend DEBE estar filtrada por el organization_id del usuario autenticado.
- * VALIDACIÓN DE ENTRADAS: Valida rigurosamente TODA la información que llega a la API del backend usando modelos Pydantic.
-7. Flujo de Trabajo con Git y Pull Requests
-Este es tu proceso para contribuir.
- * Tu Entorno: Trabajarás en una rama creada a partir de main.
- * Commits: Usa el estándar de Conventional Commits.
-   * Formato: <tipo>(<ámbito>): <descripción>
-   * Ejemplo: feat(api): add endpoint for agent pause
- * Pull Requests (PRs):
-   * Al finalizar tu tarea, crearás un Pull Request contra la rama main.
-   * Título: Claro y siguiendo el estilo de Conventional Commits.
-   * Descripción: Explica QUÉ hace el PR y POR QUÉ, referenciando este archivo si es necesario para justificar tu plan.
-   * Verificación: Antes de crear el PR, asegúrate de haber ejecutado y pasado todos los comandos de la sección 3.
-   * Revisión Humana: Tu PR será revisado por un desarrollador humano. Estás aquí para asistir y acelerar, no para eludir la supervisión.
+ * Cero any: Elimina todas las instancias del tipo any. Define interfaces y tipos estrictos para todo.
+ * Hooks Personalizados: Encapsula la lógica de cliente compleja en hooks personalizados (use...).
+ * Manejo de Estado: Utiliza Zustand para el estado global de la aplicación. Elimina cualquier otra solución de manejo de estado que pueda existir.
+5. Directrices de Pruebas (Acción Requerida)
+Tu tarea incluye la refactorización del conjunto de pruebas.
+ * Cobertura: Donde no existan pruebas para una funcionalidad crítica, escríbelas.
+ * Mocks: Asegúrate de que todas las pruebas unitarias y de integración hagan mock de las llamadas a redes externas.
+ * Pruebas E2E (Playwright): Asegúrate de que cubran los flujos de usuario más críticos: registro, login, creación de un agente, interacción de chat.
+6. Seguridad (Auditoría y Corrección)
+Audita activamente el código en busca de violaciones de seguridad y corrígelas.
+ * Secretos: Busca cualquier clave de API o secreto hardcodeado y reemplázalo con una carga desde variables de entorno.
+ * Consultas a la DB: Revisa cada consulta a la base de datos y asegúrate de que esté parametrizada para prevenir inyecciones SQL y que respete la lógica de RLS.
+ * Dependencias: Actualiza todas las dependencias a sus últimas versiones estables para mitigar vulnerabilidades conocidas.
+7. Flujo de Trabajo (Tu Proceso Autónomo)
+ * Planificación: Antes de escribir código, formula un plan detallado basado en este documento.
+ * Ejecución Incremental: Procede por módulos. Refactoriza un componente, asegúrate de que todas las pruebas pasen, y luego pasa al siguiente.
+ * Commits: Usa Conventional Commits para cada cambio significativo. refactor(core): implement clean architecture for aiRouter.
+ * Pull Request Final: Al completar toda la refactorización, crea un único Pull Request contra main con un resumen detallado de los cambios masivos realizados, referenciando esta directiva como la justificación.
