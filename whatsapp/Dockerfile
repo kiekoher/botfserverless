@@ -62,7 +62,7 @@ WORKDIR /app
 COPY --chown=botuser:botuser package*.json ./
 
 # Install app dependencies
-RUN npm install
+RUN npm install --only=production
 
 # Copy the rest of the application code
 COPY --chown=botuser:botuser . .
