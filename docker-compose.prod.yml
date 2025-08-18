@@ -1,0 +1,62 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: crezgo_backend_prod
+    restart: always
+    env_file:
+      - .env.prod
+    # The backend is only accessible within the Docker network.
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: crezgo_frontend_prod
+    restart: always
+    # The frontend is served by Nginx.
+
+  whatsapp:
+    build:
+      context: ./whatsapp
+      dockerfile: Dockerfile
+    container_name: crezgo_whatsapp_prod
+    restart: always
+    env_file:
+      - .env.prod
+    volumes:
+      - whatsapp_session_prod:/app/.wwebjs_auth
+    depends_on:
+      - nginx
+
+  nginx:
+    image: nginx:latest # Using a specific version is better in production
+    container_name: crezgo_nginx_prod
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.prod.conf:/etc/nginx/nginx.conf # Production config
+      - ./data/certbot/conf:/etc/letsencrypt
+      - ./data/certbot/www:/var/www/certbot
+    depends_on:
+      - backend
+      - frontend
+
+  certbot:
+    image: certbot/certbot
+    container_name: crezgo_certbot_prod
+    restart: always # Should be 'no' and run via cron or a timer
+    volumes:
+      - ./data/certbot/conf:/etc/letsencrypt
+      - ./data/certbot/www:/var/www/certbot
+    # This command is for initial certificate generation.
+    # Renewal should be handled by a cron job on the host.
+    # Replace with your actual domain and email.
+    command: >
+      certonly --webroot -w /var/www/certbot --email your-email@domain.com -d your-domain.com --text --agree-tos --no-eff-email --force-renewal
+
+volumes:
+  whatsapp_session_prod:

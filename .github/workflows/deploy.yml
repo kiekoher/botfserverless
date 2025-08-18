@@ -1,0 +1,91 @@
+# This is the CI/CD workflow for the project.
+# It automatically tests, builds, and deploys the application to production.
+name: Deploy to Production
+
+# Trigger the workflow on pushes to the main branch
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  # Job 1: Run tests and linters
+  test-and-lint:
+    name: Test and Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Docker Compose
+        run: docker-compose up -d
+
+      - name: Lint and Test Backend
+        run: |
+          docker-compose exec -T backend ruff format . --check
+          docker-compose exec -T backend ruff check .
+          docker-compose exec -T backend pytest
+
+      # Add frontend tests/linting here if they exist
+      # - name: Lint and Test Frontend
+      #   run: |
+      #     docker-compose exec -T frontend npm run lint
+      #     docker-compose exec -T frontend npm run test
+
+  # Job 2: Build and push Docker images
+  build-and-push:
+    name: Build and Push Images
+    runs-on: ubuntu-latest
+    needs: test-and-lint # This job depends on the success of the previous one
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push backend image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/crezgo-backend:latest
+
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/crezgo-frontend:latest
+
+      - name: Build and push whatsapp image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./whatsapp
+          file: ./whatsapp/Dockerfile
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/crezgo-whatsapp:latest
+
+  # Job 3: Deploy to production
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: build-and-push # This job depends on the success of the previous one
+    steps:
+      - name: SSH into production server and deploy
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          script: |
+            cd /path/to/your/project
+            docker-compose -f docker-compose.prod.yml pull
+            docker-compose -f docker-compose.prod.yml up -d --remove-orphans
+            docker image prune -af
