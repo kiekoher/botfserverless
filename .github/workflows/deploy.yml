@@ -1,6 +1,4 @@
-# This is the CI/CD workflow for the EVA project.
-# It automatically tests, builds, and pushes Docker images on every push to main.
-name: CI - Test, Lint, and Build
+name: CI/CD - Test, Build, and Deploy
 
 on:
   push:
@@ -11,7 +9,6 @@ on:
       - main
 
 jobs:
-  # Job 1: Run tests and linters
   test-and-lint:
     name: Test and Lint
     runs-on: ubuntu-latest
@@ -19,40 +16,30 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Copy .env file
-        run: cp .env.example .env
-
       - name: Set up Docker Compose
         run: docker-compose up -d
 
       - name: Wait for services to be healthy
-        run: sleep 30 # Give services time to start up
+        run: sleep 30
 
-      - name: Lint and Test Main API (Python)
+      - name: Lint and Test Backend
         run: |
           docker-compose exec -T main-api ruff format .
           docker-compose exec -T main-api ruff check . --fix
           docker-compose exec -T main-api pytest
-
-      - name: Lint and Test Transcription Worker (Python)
-        run: |
           docker-compose exec -T transcription-worker ruff format .
           docker-compose exec -T transcription-worker ruff check . --fix
           docker-compose exec -T transcription-worker pytest
 
-      - name: Lint and Test Frontend (JS/TS)
+      - name: Lint and Test Frontend
         run: |
           docker-compose exec -T frontend npm run lint
-          # npm run test is not set up, so this would fail.
-          # Add a test script to package.json to enable this.
           # docker-compose exec -T frontend npm run test
 
-  # Job 2: Build and push Docker images
   build-and-push:
-    name: Build and Push Images
+    name: Build and Push Docker Images
     runs-on: ubuntu-latest
     needs: test-and-lint
-    # Only run this step on direct pushes to main, not on PRs
     if: github.event_name == 'push'
     steps:
       - name: Checkout repository
@@ -68,6 +55,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ./nginx
+          file: ./nginx/Dockerfile
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/eva-nginx:latest
 
@@ -98,3 +86,29 @@ jobs:
           context: ./services/transcription-worker
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/eva-transcription-worker:latest
+
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    if: github.event_name == 'push'
+    steps:
+      - name: Deploy to server
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd /app
+            echo "DOMAIN_NAME=${{ secrets.DOMAIN_NAME }}" > .env.prod
+            echo "CERTBOT_EMAIL=${{ secrets.CERTBOT_EMAIL }}" >> .env.prod
+            echo "SUPABASE_URL=${{ secrets.SUPABASE_URL }}" >> .env.prod
+            echo "SUPABASE_KEY=${{ secrets.SUPABASE_KEY }}" >> .env.prod
+            echo "GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }}" >> .env.prod
+            echo "BACKEND_URL=http://nginx/api/chat" >> .env.prod
+            echo "NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}" >> .env.prod
+            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}" >> .env.prod
+            docker-compose -f docker-compose.prod.yml pull
+            docker-compose -f docker-compose.prod.yml down
+            docker-compose -f docker-compose.prod.yml up -d

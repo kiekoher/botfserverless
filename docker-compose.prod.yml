@@ -1,62 +1,74 @@
+version: '3.8'
+
 services:
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: crezgo_backend_prod
-    restart: always
+  redis:
+    image: redis:7.2-alpine
+    container_name: eva_redis_prod
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+
+  main-api:
+    image: ${{ secrets.DOCKERHUB_USERNAME }}/eva-main-api:latest
+    container_name: eva_main_api_prod
+    restart: unless-stopped
     env_file:
       - .env.prod
-    # The backend is only accessible within the Docker network.
+    depends_on:
+      - redis
 
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    container_name: crezgo_frontend_prod
-    restart: always
-    # The frontend is served by Nginx.
-
-  whatsapp:
-    build:
-      context: ./whatsapp
-      dockerfile: Dockerfile
-    container_name: crezgo_whatsapp_prod
-    restart: always
+  whatsapp-gateway:
+    image: ${{ secrets.DOCKERHUB_USERNAME }}/eva-whatsapp-gateway:latest
+    container_name: eva_whatsapp_gateway_prod
+    restart: unless-stopped
     env_file:
       - .env.prod
     volumes:
-      - whatsapp_session_prod:/app/.wwebjs_auth
+      - whatsapp_session_prod:/app/
     depends_on:
-      - nginx
+      - redis
+
+  transcription-worker:
+    image: ${{ secrets.DOCKERHUB_USERNAME }}/eva-transcription-worker:latest
+    container_name: eva_transcription_worker_prod
+    restart: unless-stopped
+    env_file:
+      - .env.prod
+    depends_on:
+      - redis
+
+  frontend:
+    image: ${{ secrets.DOCKERHUB_USERNAME }}/eva-frontend:latest
+    container_name: eva_frontend_prod
+    restart: unless-stopped
+    env_file:
+      - .env.prod
 
   nginx:
-    image: nginx:latest # Using a specific version is better in production
-    container_name: crezgo_nginx_prod
-    restart: always
+    image: ${{ secrets.DOCKERHUB_USERNAME }}/eva-nginx:latest
+    container_name: eva_nginx_prod
+    restart: unless-stopped
     ports:
       - "80:80"
       - "443:443"
     volumes:
-      - ./nginx/nginx.prod.conf:/etc/nginx/nginx.conf # Production config
-      - ./data/certbot/conf:/etc/letsencrypt
-      - ./data/certbot/www:/var/www/certbot
+      - ./nginx/nginx.prod.conf:/etc/nginx/conf.d/default.conf
+      - certbot_conf:/etc/letsencrypt
+      - certbot_www:/var/www/certbot
     depends_on:
-      - backend
+      - main-api
       - frontend
 
   certbot:
     image: certbot/certbot
-    container_name: crezgo_certbot_prod
-    restart: always # Should be 'no' and run via cron or a timer
+    container_name: eva_certbot_prod
     volumes:
-      - ./data/certbot/conf:/etc/letsencrypt
-      - ./data/certbot/www:/var/www/certbot
-    # This command is for initial certificate generation.
-    # Renewal should be handled by a cron job on the host.
-    # Replace with your actual domain and email.
-    command: >
-      certonly --webroot -w /var/www/certbot --email your-email@domain.com -d your-domain.com --text --agree-tos --no-eff-email --force-renewal
+      - certbot_conf:/etc/letsencrypt
+      - certbot_www:/var/www/certbot
+    command: certonly --webroot --webroot-path=/var/www/certbot --email ${{ secrets.CERTBOT_EMAIL }} --agree-tos --no-eff-email -d ${{ secrets.DOMAIN_NAME }}
 
 volumes:
+  redis_data:
   whatsapp_session_prod:
+  certbot_conf:
+  certbot_www:
