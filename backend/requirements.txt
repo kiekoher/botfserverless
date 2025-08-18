@@ -1,0 +1,13 @@
+fastapi
+uvicorn[standard]
+pydantic
+supabase
+google-generativeai
+python-dotenv
+
+# Development and testing
+ruff
+pytest
+pytest-cov
+httpx # For testing FastAPI endpoints
+requests

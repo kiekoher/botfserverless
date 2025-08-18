@@ -1,37 +1,42 @@
 services:
-  bot:
+  backend:
     build:
-      context: .
-      # Especifica que debe usar el Dockerfile principal
+      context: ./backend
       dockerfile: Dockerfile
-    # Nombre explícito del contenedor para evitar confusión con proyectos
-    # previos que hayan usado la misma ruta de trabajo. Cambiamos la
-    # denominación a eva_bot.
-    container_name: eva_bot
-    volumes:
-      - ./.wwebjs_auth:/app/.wwebjs_auth
-      - ./qr:/app/qr
+    container_name: crezgo_backend
     restart: unless-stopped
     env_file:
       - .env
-    # El comando por defecto del Dockerfile iniciará bot.cjs, así que no necesitamos especificarlo.
-
-  ingest:
-    build:
-      context: .
-      # --- INICIO DE LA CORRECCIÓN ---
-      # Apunta al mismo Dockerfile que el bot.
-      dockerfile: Dockerfile
-    # Contenedor dedicado a la ingesta automática de documentos. También
-    # actualizamos su nombre para mantener coherencia con el bot principal.
-    container_name: eva_ingest
     volumes:
-      - ./documentos:/app/documentos
-      - ./jsonl_output:/app/jsonl_output
+      - ./backend:/app
+    ports:
+      - "8000:8000" # For local development and debugging
+
+  whatsapp:
+    build:
+      context: ./whatsapp
+      dockerfile: Dockerfile
+    container_name: crezgo_whatsapp
     restart: unless-stopped
     env_file:
       - .env
-    # Le decimos a este servicio que, en lugar del comando por defecto, ejecute el script de ingesta.
-    command: "node auto_ingest.cjs"
-    # --- FIN DE LA CORRECCIÓN ---
+    volumes:
+      # Mount a volume to persist the WhatsApp session data
+      - whatsapp_session:/app/.wwebjs_auth
+    depends_on:
+      - nginx
 
+  nginx:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    container_name: crezgo_nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - backend
+
+volumes:
+  whatsapp_session:
