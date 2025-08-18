@@ -92,11 +92,9 @@ async def main_loop():
                         continue
 
                     # Execute the use case
-                    # For now, we pass an empty history. This will be managed by the use case.
                     bot_response_text = await process_chat_message_use_case.execute(
                         user_id=user_id,
-                        user_query=query,
-                        history=[]
+                        user_query=query
                     )
 
                     # Prepare the output payload

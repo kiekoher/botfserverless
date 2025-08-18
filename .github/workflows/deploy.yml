@@ -101,14 +101,32 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             cd /app
+            # Create production environment file from secrets
             echo "DOMAIN_NAME=${{ secrets.DOMAIN_NAME }}" > .env.prod
             echo "CERTBOT_EMAIL=${{ secrets.CERTBOT_EMAIL }}" >> .env.prod
+
+            # Supabase
             echo "SUPABASE_URL=${{ secrets.SUPABASE_URL }}" >> .env.prod
             echo "SUPABASE_KEY=${{ secrets.SUPABASE_KEY }}" >> .env.prod
-            echo "GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }}" >> .env.prod
-            echo "BACKEND_URL=http://nginx/api/chat" >> .env.prod
             echo "NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}" >> .env.prod
             echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}" >> .env.prod
+
+            # AI Models
+            echo "GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }}" >> .env.prod
+            echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" >> .env.prod
+            echo "DEEPSEEK_API_KEY=${{ secrets.DEEPSEEK_API_KEY }}" >> .env.prod
+            echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> .env.prod
+
+            # R2 Storage
+            echo "R2_ENDPOINT_URL=${{ secrets.R2_ENDPOINT_URL }}" >> .env.prod
+            echo "R2_BUCKET_NAME=${{ secrets.R2_BUCKET_NAME }}" >> .env.prod
+            echo "R2_ACCESS_KEY_ID=${{ secrets.R2_ACCESS_KEY_ID }}" >> .env.prod
+            echo "R2_SECRET_ACCESS_KEY=${{ secrets.R2_SECRET_ACCESS_KEY }}" >> .env.prod
+
+            # Redis
+            echo "REDIS_HOST=redis" >> .env.prod
+
+            # Pull latest images and restart services
             docker-compose -f docker-compose.prod.yml pull
             docker-compose -f docker-compose.prod.yml down
             docker-compose -f docker-compose.prod.yml up -d

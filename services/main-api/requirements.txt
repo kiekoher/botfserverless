@@ -1,10 +1,14 @@
+deepseek
 fastapi
-uvicorn[standard]
-pydantic
-supabase
+google-cloud-storage
 google-generativeai
+openai
+pydantic
 python-dotenv
 redis
+supabase
+tiktoken
+uvicorn[standard]
 
 # Development and testing
 ruff

@@ -9,11 +9,13 @@ class ProcessChatMessage:
         self.router = router
         self.db_adapter = db_adapter
 
-    async def execute(self, user_id: str, user_query: str, history: list) -> str:
+    async def execute(self, user_id: str, user_query: str) -> str:
         """
         Orchestrates the processing of a user's chat message using the AI Router.
         """
         # 1. Get the agent configuration for the user
+        # Note: In a multi-agent setup, we'd need a way to map user_id to a specific agent.
+        # For now, we get the first agent associated with the user's account.
         agent = self.db_adapter.get_agent_for_user(user_id)
 
         if not agent:
@@ -22,8 +24,14 @@ class ProcessChatMessage:
         if agent.get('status') == 'paused':
             return "This agent is currently paused. Please resume it from the dashboard."
 
-        # 2. Route the query to the appropriate AI model
-        # We can pass the agent's specific config to the router
+        # 2. Get the conversation history
+        history = self.db_adapter.get_conversation_history(
+            agent_id=agent['id'],
+            user_id=user_id
+        )
+        print(f"Retrieved {len(history)} turns of history for agent {agent['id']}.")
+
+        # 3. Route the query to the appropriate AI model
         bot_response = await self.router.route_query(
             query=user_query,
             history=history,
