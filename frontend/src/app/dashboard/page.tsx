@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import MainLayout from '@/components/layout/MainLayout'
 import Link from 'next/link';
+import { revalidatePath } from 'next/cache';
 
 export default async function DashboardPage() {
   const supabase = createClient()
@@ -18,7 +19,29 @@ export default async function DashboardPage() {
 
   if (error) {
     console.error('Error fetching agents:', error);
-    // Handle error gracefully in the UI
+  }
+
+  async function toggleAgentStatus(formData: FormData) {
+    'use server'
+
+    const supabase = createClient();
+    const agentId = formData.get('agent_id') as string;
+    const currentStatus = formData.get('current_status') as string;
+
+    const newStatus = currentStatus === 'active' ? 'paused' : 'active';
+
+    const { error } = await supabase
+      .from('agents')
+      .update({ status: newStatus })
+      .eq('id', agentId);
+
+    if (error) {
+      console.error("Failed to update agent status:", error);
+      redirect('/dashboard?error=Could not update agent status');
+    }
+
+    // Revalidate the dashboard path to show the new status
+    revalidatePath('/dashboard');
   }
 
   return (
@@ -41,11 +64,17 @@ export default async function DashboardPage() {
                   }`}>
                     {agent.status}
                   </span>
+                  <form action={toggleAgentStatus}>
+                    <input type="hidden" name="agent_id" value={agent.id} />
+                    <input type="hidden" name="current_status" value={agent.status} />
+                    <button type="submit" className={`px-3 py-1 text-sm text-white rounded ${
+                      agent.status === 'active' ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'
+                    }`}>
+                      {agent.status === 'active' ? 'Pause' : 'Resume'}
+                    </button>
+                  </form>
                   <Link href={`/dashboard/agents/${agent.id}`} className="text-blue-500 hover:underline">
                     Edit
-                  </Link>
-                  <Link href={`/dashboard/agents/${agent.id}/conversations`} className="text-gray-500 hover:underline">
-                    View Conversations
                   </Link>
                 </div>
               </li>

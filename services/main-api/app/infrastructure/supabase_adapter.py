@@ -28,6 +28,33 @@ class SupabaseAdapter:
             print(f"Error fetching agent for user {user_id}: {e}")
             return None
 
+    def get_conversation_history(self, agent_id: str, user_id: str, limit: int = 10):
+        """
+        Retrieves the last N conversation turns for a given agent and user.
+        """
+        try:
+            response = self.client.table("conversations") \
+                .select("user_message, bot_response, created_at") \
+                .eq("agent_id", agent_id) \
+                .eq("user_id", user_id) \
+                .order("created_at", desc=True) \
+                .limit(limit) \
+                .execute()
+
+            # The history needs to be in chronological order for the AI
+            history = sorted(response.data, key=lambda x: x['created_at'])
+
+            # Format for AI model (e.g., Gemini)
+            formatted_history = []
+            for turn in history:
+                formatted_history.append({"role": "user", "parts": [{"text": turn["user_message"]}]})
+                formatted_history.append({"role": "model", "parts": [{"text": turn["bot_response"]}]})
+
+            return formatted_history
+        except Exception as e:
+            print(f"Error fetching conversation history for agent {agent_id}: {e}")
+            return []
+
     def log_conversation(
         self,
         agent_id: str,
