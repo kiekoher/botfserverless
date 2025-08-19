@@ -144,9 +144,9 @@ async function startRedisConsumer() {
             );
 
             if (response && response.length > 0) {
-                // --- MEJORA IMPLEMENTADA ---
-                // La librería redis v4 devuelve un objeto, no un array.
-                // Esta es la forma correcta de acceder a los datos.
+                // The redis v4 library returns null on timeout or an array of streams.
+                // Each stream object contains a `messages` array.
+                // We access the first message of the first stream.
                 const streamMessage = response[0].messages[0];
                 const messageId = streamMessage.id;
                 const messageData = streamMessage.message; // El payload está en la propiedad 'message'
