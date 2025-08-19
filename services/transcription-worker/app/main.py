@@ -117,7 +117,53 @@ def setup_redis():
         else:
             raise
 
-def main_loop():
+import asyncio
+
+# DLQ Configuration
+DEAD_LETTER_QUEUE = "events:dead_letter_queue"
+MAX_RETRIES = 3
+
+async def process_message_with_retry(message_id, message_data):
+    """Process a message with a retry mechanism."""
+    for attempt in range(MAX_RETRIES):
+        try:
+            print(f"Processing message {message_id}, attempt {attempt + 1}/{MAX_RETRIES}")
+            body_text = ""
+            transcribed = "false"
+
+            if 'mediaKey' in message_data and message_data['mediaKey']:
+                print("🎤 Message has media, attempting transcription...")
+                local_path = download_audio_from_r2(message_data['mediaKey'])
+                if local_path:
+                    body_text = transcribe_audio(local_path)
+                    transcribed = "true"
+                else:
+                    body_text = "[Error during audio download]"
+                    raise Exception("Failed to download audio from R2")
+            else:
+                body_text = message_data['body']
+
+            output_payload = {
+                'userId': message_data['userId'],
+                'chatId': message_data['chatId'],
+                'timestamp': message_data['timestamp'],
+                'body': body_text,
+                'transcribed': transcribed
+            }
+
+            r.xadd(STREAM_OUT, output_payload)
+            print(f"✅ Forwarded message for {message_data['userId']} to {STREAM_OUT}")
+            return True # Success
+
+        except Exception as e:
+            print(f"Error processing message {message_id} on attempt {attempt + 1}: {e}")
+            if attempt + 1 == MAX_RETRIES:
+                print(f"Message {message_id} failed after {MAX_RETRIES} attempts. Moving to DLQ.")
+                return False # Failure
+            await asyncio.sleep(2 ** attempt) # Exponential backoff
+    return False
+
+async def main_loop():
     print("👂 Starting to listen for messages...")
     while True:
         try:
@@ -136,41 +182,24 @@ def main_loop():
                 for message_id, message_data in messages:
                     print(f"Received message {message_id}: {message_data}")
 
-                    body_text = ""
-                    transcribed = "false"
+                    success = await process_message_with_retry(message_id, message_data)
 
-                    if 'mediaKey' in message_data and message_data['mediaKey']:
-                        print("🎤 Message has media, attempting transcription...")
-                        # Download from R2
-                        local_path = download_audio_from_r2(message_data['mediaKey'])
-                        if local_path:
-                            # Transcribe
-                            body_text = transcribe_audio(local_path)
-                            transcribed = "true"
-                        else:
-                            body_text = "[Error during audio download]"
+                    if success:
+                        r.xack(STREAM_IN, CONSUMER_GROUP, message_id)
+                        print(f"Successfully processed and acknowledged message {message_id}")
                     else:
-                        # It's a regular text message
-                        body_text = message_data['body']
-
-
-                    output_payload = {
-                        'userId': message_data['userId'],
-                        'chatId': message_data['chatId'],
-                        'timestamp': message_data['timestamp'],
-                        'body': body_text,
-                        'transcribed': transcribed
-                    }
-
-                    r.xadd(STREAM_OUT, output_payload)
-                    print(f"✅ Forwarded message for {message_data['userId']} to {STREAM_OUT}")
-
-                    r.xack(STREAM_IN, CONSUMER_GROUP, message_id)
+                        # Move to DLQ
+                        dlq_payload = message_data.copy()
+                        dlq_payload['error_service'] = 'transcription-worker'
+                        dlq_payload['error_timestamp'] = time.time()
+                        r.xadd(DEAD_LETTER_QUEUE, dlq_payload)
+                        r.xack(STREAM_IN, CONSUMER_GROUP, message_id) # Ack original message
+                        print(f"Moved message {message_id} to DLQ '{DEAD_LETTER_QUEUE}'")
 
         except Exception as e:
-            print(f"An error occurred in the main loop: {e}")
+            print(f"A critical error occurred in main loop: {e}")
             time.sleep(5)
 
 if __name__ == "__main__":
     setup_redis()
-    main_loop()
+    asyncio.run(main_loop())

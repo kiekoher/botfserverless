@@ -36,10 +36,35 @@ jobs:
           docker-compose exec -T frontend npm run lint
           # docker-compose exec -T frontend npm run test
 
+  integration-test:
+    name: End-to-End Integration Test
+    runs-on: ubuntu-latest
+    needs: test-and-lint
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Compose
+        run: docker-compose up -d
+
+      - name: Wait for services to be healthy
+        run: |
+          echo "Waiting for all services to start..."
+          sleep 45 # Increased wait time for all services to be fully operational
+          echo "Services should be up."
+
+      - name: Add redis-py to main-api container
+        run: docker-compose exec -T main-api pip install redis
+
+      - name: Run End-to-End Test
+        run: >
+          docker-compose exec -T -e REDIS_HOST=redis main-api
+          python /app/tests/end-to-end.py
+
   build-and-push:
     name: Build and Push Docker Images
     runs-on: ubuntu-latest
-    needs: test-and-lint
+    needs: integration-test
     if: github.event_name == 'push'
     steps:
       - name: Checkout repository
