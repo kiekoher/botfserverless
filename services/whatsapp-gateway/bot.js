@@ -25,8 +25,16 @@ console.log("🤖 WhatsApp Gateway Initializing...");
 // Redis Client
 const redisClient = createClient({ url: `redis://${REDIS_HOST}:6379` });
 redisClient.on('error', (err) => console.error('Redis Client Error', err));
-redisClient.connect();
-console.log("🔌 Connected to Redis.");
+
+// Ensure connection is fully established and errors are logged
+(async () => {
+    try {
+        await redisClient.connect();
+        console.log('🔌 Connected to Redis.');
+    } catch (err) {
+        console.error('❌ Redis connection error:', err);
+    }
+})();
 
 // S3 Client for R2
 const s3Client = new S3Client({
@@ -54,8 +62,20 @@ client.on('qr', qr => {
     qrcode.generate(qr, { small: true });
 });
 
-client.on('ready', () => {
+client.on('ready', async () => {
     console.log('✅ WhatsApp Adapter is ready and connected.');
+
+    // Ensure Redis is connected before starting consumer
+    if (!redisClient.isOpen) {
+        try {
+            await redisClient.connect();
+            console.log('🔌 Connected to Redis.');
+        } catch (err) {
+            console.error('❌ Redis connection error:', err);
+            return;
+        }
+    }
+
     startRedisConsumer();
 });
 
