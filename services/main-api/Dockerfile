@@ -1,40 +1,35 @@
 # Stage 1: Builder
-# This stage installs all dependencies into a virtual environment.
 FROM python:3.11-slim as builder
 
+COPY requirements.txt /app/
 WORKDIR /app
 
-# Install poetry and configure it
-RUN pip install poetry
-
-# Copy only the files needed for dependency installation
-COPY requirements.txt ./
-
-# Install dependencies into a virtual environment
-# Using a virtual environment to isolate dependencies
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Install dependencies from requirements.txt
+# Instala las dependencias
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Stage 2: Runner
-# This stage creates the final, lean image.
 FROM python:3.11-slim as runner
 
-WORKDIR /app
+# Crea un directorio para el código de la aplicación
+WORKDIR /code
 
-# Copy the virtual environment from the builder stage
+# --- MEJORA: Instala curl Y TAMBIÉN procps (para pgrep) para el healthcheck ---
+RUN apt-get update && apt-get install -y curl procps && rm -rf /var/lib/apt/lists/*
+
+# Copia el entorno virtual del builder
 COPY --from=builder /opt/venv /opt/venv
 
-# Copy the application code
-COPY ./app /app/app
+# Copia el código de la aplicación a la carpeta /code/app
+COPY ./app /code/app
 
-# Activate the virtual environment
+# Activa el entorno virtual
 ENV PATH="/opt/venv/bin:$PATH"
 
-# This service is now a worker, not a web server.
-# No need to expose a port.
+# Añade el directorio /code al PYTHONPATH para que Python encuentre el paquete 'app'
+ENV PYTHONPATH=/code
 
-# Run the worker script
-CMD ["python", "app/main.py"]
+# Ejecuta el script como un módulo desde la raíz del código
+CMD ["python", "-m", "app.main"]

@@ -1,5 +1,8 @@
 'use client'
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -7,21 +10,24 @@ import { createClient } from '@/lib/supabase/client'
 export default function SignupPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [loading, setLoading] = useState(false)
   const router = useRouter()
-  const supabase = createClient()
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault()
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-    })
-
-    if (error) {
-      alert(error.message)
-    } else {
-      alert('Check your email for the confirmation link!')
+    setLoading(true)
+    try {
+      // Crear el cliente SOLO en el handler (evita ejecución en build/prerender)
+      const supabase = createClient()
+      const { error } = await supabase.auth.signUp({ email, password })
+      if (error) {
+        alert(error.message)
+        return
+      }
+      alert('Revisa tu correo para confirmar la cuenta.')
       router.push('/login')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -35,6 +41,7 @@ export default function SignupPage() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           className="w-full p-2 mb-4 border rounded"
+          required
         />
         <input
           type="password"
@@ -42,9 +49,14 @@ export default function SignupPage() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           className="w-full p-2 mb-4 border rounded"
+          required
         />
-        <button type="submit" className="w-full p-2 bg-blue-500 text-white rounded">
-          Sign Up
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full p-2 bg-blue-500 text-white rounded disabled:opacity-60"
+        >
+          {loading ? 'Creando...' : 'Sign Up'}
         </button>
       </form>
     </div>

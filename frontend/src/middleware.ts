@@ -54,20 +54,19 @@ export async function middleware(request: NextRequest) {
     }
   )
 
+  // IMPORTANT: This will refresh the session cookie
   await supabase.auth.getSession()
 
   return response
 }
 
+// --- MEJORA: Se actualiza el matcher para proteger solo el dashboard ---
 export const config = {
   matcher: [
     /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * Feel free to modify this pattern to include more paths.
+     * Match all request paths under /dashboard.
+     * This protects the dashboard while leaving the homepage, login, etc., public.
      */
-    '/((?!_next/static|_next/image|favicon.ico).*)',
+    '/dashboard/:path*',
   ],
 }

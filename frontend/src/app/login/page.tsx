@@ -1,5 +1,8 @@
 'use client'
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -7,20 +10,23 @@ import { createClient } from '@/lib/supabase/client'
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [loading, setLoading] = useState(false)
   const router = useRouter()
-  const supabase = createClient()
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
-
-    if (error) {
-      alert(error.message)
-    } else {
+    setLoading(true)
+    try {
+      // Crear el cliente SOLO en el handler (evita ejecución en build/prerender)
+      const supabase = createClient()
+      const { error } = await supabase.auth.signInWithPassword({ email, password })
+      if (error) {
+        alert(error.message)
+        return
+      }
       router.push('/dashboard')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -34,6 +40,7 @@ export default function LoginPage() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           className="w-full p-2 mb-4 border rounded"
+          required
         />
         <input
           type="password"
@@ -41,9 +48,14 @@ export default function LoginPage() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           className="w-full p-2 mb-4 border rounded"
+          required
         />
-        <button type="submit" className="w-full p-2 bg-blue-500 text-white rounded">
-          Login
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full p-2 bg-blue-500 text-white rounded disabled:opacity-60"
+        >
+          {loading ? 'Ingresando...' : 'Login'}
         </button>
       </form>
     </div>

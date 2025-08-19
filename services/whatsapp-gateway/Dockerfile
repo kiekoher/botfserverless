@@ -1,5 +1,5 @@
-# Use an official Node.js runtime as a parent image
-FROM node:18-slim
+# Use an official Node.js runtime as a parent image, updated to version 20
+FROM node:20-slim
 
 # Set environment variables
 ENV DEBIAN_FRONTEND=noninteractive

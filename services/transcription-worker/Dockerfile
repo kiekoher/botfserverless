@@ -13,11 +13,20 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Stage 2: Runner
 FROM python:3.11-slim as runner
 
-WORKDIR /app
+# Crea un directorio para el código de la aplicación
+WORKDIR /code
 
+# Copia el entorno virtual del builder
 COPY --from=builder /opt/venv /opt/venv
-COPY ./app /app/app
 
+# Copia el código de la aplicación a la carpeta /code/app
+COPY ./app /code/app
+
+# Activa el entorno virtual
 ENV PATH="/opt/venv/bin:$PATH"
 
-CMD ["python", "app/main.py"]
+# Añade el directorio /code al PYTHONPATH
+ENV PYTHONPATH=/code
+
+# Ejecuta el script como un módulo
+CMD ["python", "-m", "app.main"]
