@@ -81,7 +81,7 @@ export default async function DashboardPage() {
             ))}
           </ul>
         ) : (
-          <p>You haven't created any agents yet.</p>
+          <p>You haven&apos;t created any agents yet.</p>
         )}
       </div>
     </MainLayout>

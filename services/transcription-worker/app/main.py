@@ -2,6 +2,7 @@ import os
 import redis
 import time
 import tempfile
+import asyncio
 from google.cloud import speech
 from google.cloud import storage
 
@@ -10,11 +11,13 @@ REDIS_HOST = os.getenv("REDIS_HOST", "redis")
 STREAM_IN = "events:new_message"
 STREAM_OUT = "events:transcribed_message"
 CONSUMER_GROUP = "group:transcription-workers"
-CONSUMER_NAME = f"consumer:transcription-worker-1"
+CONSUMER_NAME = "consumer:transcription-worker-1"
 
 # Google Cloud / R2 Configuration
 # For R2, we use the GCS client with a custom endpoint.
-R2_ENDPOINT_URL = os.getenv("R2_ENDPOINT_URL") # e.g., https://<accountid>.r2.cloudflarestorage.com
+R2_ENDPOINT_URL = os.getenv(
+    "R2_ENDPOINT_URL"
+)  # e.g., https://<accountid>.r2.cloudflarestorage.com
 R2_BUCKET_NAME = os.getenv("R2_BUCKET_NAME")
 R2_ACCESS_KEY_ID = os.getenv("R2_ACCESS_KEY_ID")
 R2_SECRET_ACCESS_KEY = os.getenv("R2_SECRET_ACCESS_KEY")
@@ -31,13 +34,13 @@ r = redis.Redis(host=REDIS_HOST, port=6379, decode_responses=True)
 try:
     storage_client = storage.Client(
         endpoint_url=R2_ENDPOINT_URL,
-        project="r2-project", # project is required but not used by R2
+        project="r2-project",  # project is required but not used by R2
         credentials=storage.credentials.Credentials(
-            access_token=R2_ACCESS_KEY_ID, # This is a bit of a hack for the library
+            access_token=R2_ACCESS_KEY_ID,  # This is a bit of a hack for the library
             client_id=R2_ACCESS_KEY_ID,
             client_secret=R2_SECRET_ACCESS_KEY,
-            token_uri="https://oauth2.googleapis.com/token", # Dummy value
-        )
+            token_uri="https://oauth2.googleapis.com/token",  # Dummy value
+        ),
     )
     print("✅ R2 Storage client initialized.")
 except Exception as e:
@@ -54,6 +57,7 @@ try:
 except Exception as e:
     print(f"❌ Failed to initialize Speech-to-Text client: {e}")
     speech_client = None
+
 
 # --- Helper Functions ---
 def download_audio_from_r2(file_key):
@@ -73,6 +77,7 @@ def download_audio_from_r2(file_key):
         print(f"❌ Failed to download file from R2: {e}")
         return None
 
+
 def transcribe_audio(file_path):
     """Transcribes the audio file at the given path."""
     if not speech_client:
@@ -83,9 +88,9 @@ def transcribe_audio(file_path):
 
         audio = speech.RecognitionAudio(content=content)
         config = speech.RecognitionConfig(
-            encoding=speech.RecognitionConfig.AudioEncoding.OGG_OPUS, # Common for WhatsApp
+            encoding=speech.RecognitionConfig.AudioEncoding.OGG_OPUS,  # Common for WhatsApp
             sample_rate_hertz=16000,
-            language_code="es-ES", # Spanish
+            language_code="es-ES",  # Spanish
         )
 
         response = speech_client.recognize(config=config, audio=audio)
@@ -105,6 +110,7 @@ def transcribe_audio(file_path):
         if os.path.exists(file_path):
             os.remove(file_path)
 
+
 # --- Main Loop ---
 def setup_redis():
     """Create consumer group if it doesn't exist."""
@@ -117,23 +123,26 @@ def setup_redis():
         else:
             raise
 
-import asyncio
 
-# DLQ Configuration
+# Dead Letter Queue configuration
+# Messages failing MAX_RETRIES are forwarded to DEAD_LETTER_QUEUE
 DEAD_LETTER_QUEUE = "events:dead_letter_queue"
 MAX_RETRIES = 3
+
 
 async def process_message_with_retry(message_id, message_data):
     """Process a message with a retry mechanism."""
     for attempt in range(MAX_RETRIES):
         try:
-            print(f"Processing message {message_id}, attempt {attempt + 1}/{MAX_RETRIES}")
+            print(
+                f"Processing message {message_id}, attempt {attempt + 1}/{MAX_RETRIES}"
+            )
             body_text = ""
             transcribed = "false"
 
-            if 'mediaKey' in message_data and message_data['mediaKey']:
+            if "mediaKey" in message_data and message_data["mediaKey"]:
                 print("🎤 Message has media, attempting transcription...")
-                local_path = download_audio_from_r2(message_data['mediaKey'])
+                local_path = download_audio_from_r2(message_data["mediaKey"])
                 if local_path:
                     body_text = transcribe_audio(local_path)
                     transcribed = "true"
@@ -141,38 +150,39 @@ async def process_message_with_retry(message_id, message_data):
                     body_text = "[Error during audio download]"
                     raise Exception("Failed to download audio from R2")
             else:
-                body_text = message_data['body']
+                body_text = message_data["body"]
 
             output_payload = {
-                'userId': message_data['userId'],
-                'chatId': message_data['chatId'],
-                'timestamp': message_data['timestamp'],
-                'body': body_text,
-                'transcribed': transcribed
+                "userId": message_data["userId"],
+                "chatId": message_data["chatId"],
+                "timestamp": message_data["timestamp"],
+                "body": body_text,
+                "transcribed": transcribed,
             }
 
             r.xadd(STREAM_OUT, output_payload)
             print(f"✅ Forwarded message for {message_data['userId']} to {STREAM_OUT}")
-            return True # Success
+            return True  # Success
 
         except Exception as e:
-            print(f"Error processing message {message_id} on attempt {attempt + 1}: {e}")
+            print(
+                f"Error processing message {message_id} on attempt {attempt + 1}: {e}"
+            )
             if attempt + 1 == MAX_RETRIES:
-                print(f"Message {message_id} failed after {MAX_RETRIES} attempts. Moving to DLQ.")
-                return False # Failure
-            await asyncio.sleep(2 ** attempt) # Exponential backoff
+                print(
+                    f"Message {message_id} failed after {MAX_RETRIES} attempts. Moving to DLQ."
+                )
+                return False  # Failure
+            await asyncio.sleep(2**attempt)  # Exponential backoff
     return False
+
 
 async def main_loop():
     print("👂 Starting to listen for messages...")
     while True:
         try:
             response = r.xreadgroup(
-                CONSUMER_GROUP,
-                CONSUMER_NAME,
-                {STREAM_IN: ">"},
-                count=1,
-                block=5000
+                CONSUMER_GROUP, CONSUMER_NAME, {STREAM_IN: ">"}, count=1, block=5000
             )
 
             if not response:
@@ -186,19 +196,26 @@ async def main_loop():
 
                     if success:
                         r.xack(STREAM_IN, CONSUMER_GROUP, message_id)
-                        print(f"Successfully processed and acknowledged message {message_id}")
+                        print(
+                            f"Successfully processed and acknowledged message {message_id}"
+                        )
                     else:
                         # Move to DLQ
                         dlq_payload = message_data.copy()
-                        dlq_payload['error_service'] = 'transcription-worker'
-                        dlq_payload['error_timestamp'] = time.time()
+                        dlq_payload["error_service"] = "transcription-worker"
+                        dlq_payload["error_timestamp"] = time.time()
                         r.xadd(DEAD_LETTER_QUEUE, dlq_payload)
-                        r.xack(STREAM_IN, CONSUMER_GROUP, message_id) # Ack original message
-                        print(f"Moved message {message_id} to DLQ '{DEAD_LETTER_QUEUE}'")
+                        r.xack(
+                            STREAM_IN, CONSUMER_GROUP, message_id
+                        )  # Ack original message
+                        print(
+                            f"Moved message {message_id} to DLQ '{DEAD_LETTER_QUEUE}'"
+                        )
 
         except Exception as e:
             print(f"A critical error occurred in main loop: {e}")
             time.sleep(5)
+
 
 if __name__ == "__main__":
     setup_redis()
