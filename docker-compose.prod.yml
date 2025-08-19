@@ -8,9 +8,10 @@ services:
     volumes:
       - redis_data:/data
     logging:
-      driver: loki
+      driver: json-file
       options:
-        loki-url: "http://localhost:3100/loki/api/v1/push"
+        max-size: "10m"
+        max-file: "3"
 
   main-api:
     image: ${{ secrets.DOCKERHUB_USERNAME }}/eva-main-api:latest
@@ -21,9 +22,10 @@ services:
     depends_on:
       - redis
     logging:
-      driver: loki
+      driver: json-file
       options:
-        loki-url: "http://localhost:3100/loki/api/v1/push"
+        max-size: "10m"
+        max-file: "3"
 
   whatsapp-gateway:
     image: ${{ secrets.DOCKERHUB_USERNAME }}/eva-whatsapp-gateway:latest
@@ -36,9 +38,10 @@ services:
     depends_on:
       - redis
     logging:
-      driver: loki
+      driver: json-file
       options:
-        loki-url: "http://localhost:3100/loki/api/v1/push"
+        max-size: "10m"
+        max-file: "3"
 
   transcription-worker:
     image: ${{ secrets.DOCKERHUB_USERNAME }}/eva-transcription-worker:latest
@@ -49,9 +52,10 @@ services:
     depends_on:
       - redis
     logging:
-      driver: loki
+      driver: json-file
       options:
-        loki-url: "http://localhost:3100/loki/api/v1/push"
+        max-size: "10m"
+        max-file: "3"
 
   frontend:
     image: ${{ secrets.DOCKERHUB_USERNAME }}/eva-frontend:latest
@@ -60,9 +64,10 @@ services:
     env_file:
       - .env.prod
     logging:
-      driver: loki
+      driver: json-file
       options:
-        loki-url: "http://localhost:3100/loki/api/v1/push"
+        max-size: "10m"
+        max-file: "3"
 
   nginx:
     image: ${{ secrets.DOCKERHUB_USERNAME }}/eva-nginx:latest
@@ -78,6 +83,11 @@ services:
     depends_on:
       - main-api
       - frontend
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   certbot:
     image: certbot/certbot
@@ -86,6 +96,11 @@ services:
       - certbot_conf:/etc/letsencrypt
       - certbot_www:/var/www/certbot
     command: certonly --webroot --webroot-path=/var/www/certbot --email ${{ secrets.CERTBOT_EMAIL }} --agree-tos --no-eff-email -d ${{ secrets.DOMAIN_NAME }}
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   loki:
     image: grafana/loki:2.9.0
@@ -93,6 +108,26 @@ services:
     ports:
       - "3100:3100"
     command: -config.file=/etc/loki/local-config.yaml
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  promtail:
+    image: grafana/promtail:2.9.0
+    container_name: eva_promtail_prod
+    volumes:
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - ./promtail/promtail.yml:/etc/promtail/config.yml
+    command: -config.file=/etc/promtail/config.yml
+    depends_on:
+      - loki
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 volumes:
   redis_data:
