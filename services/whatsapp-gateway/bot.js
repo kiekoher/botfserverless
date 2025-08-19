@@ -144,7 +144,13 @@ async function startRedisConsumer() {
             );
 
             if (response && response.length > 0) {
-                const [messageId, messageData] = response[0].messages[0];
+                // --- MEJORA IMPLEMENTADA ---
+                // La librería redis v4 devuelve un objeto, no un array.
+                // Esta es la forma correcta de acceder a los datos.
+                const streamMessage = response[0].messages[0];
+                const messageId = streamMessage.id;
+                const messageData = streamMessage.message; // El payload está en la propiedad 'message'
+
                 const { userId, body } = messageData;
 
                 console.log(`📩 Received response for ${userId} from stream: "${body}"`);
