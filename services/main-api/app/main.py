@@ -63,6 +63,48 @@ def setup_redis():
             print(f"Error setting up Redis group: {e}")
             raise
 
+# DLQ Configuration
+DEAD_LETTER_QUEUE = "events:dead_letter_queue"
+MAX_RETRIES = 3
+
+async def process_message_with_retry(message_id, message_data):
+    """Process a message with a retry mechanism."""
+    for attempt in range(MAX_RETRIES):
+        try:
+            print(f"Processing message {message_id}, attempt {attempt + 1}/{MAX_RETRIES}")
+            user_id = message_data.get('userId')
+            query = message_data.get('body')
+
+            if not user_id or not query:
+                print("Message missing userId or body, skipping.")
+                return True # Acknowledge and move on
+
+            # Execute the use case
+            bot_response_text = await process_chat_message_use_case.execute(
+                user_id=user_id,
+                user_query=query
+            )
+
+            # Prepare the output payload
+            output_payload = {
+                'userId': user_id,
+                'body': bot_response_text
+            }
+
+            # Publish the response
+            r.xadd(STREAM_OUT, output_payload)
+            print(f"Published response for {user_id} to {STREAM_OUT}")
+            return True # Success
+
+        except Exception as e:
+            print(f"Error processing message {message_id} on attempt {attempt + 1}: {e}")
+            if attempt + 1 == MAX_RETRIES:
+                print(f"Message {message_id} failed after {MAX_RETRIES} attempts. Moving to DLQ.")
+                return False # Failure
+            await asyncio.sleep(2 ** attempt) # Exponential backoff
+
+    return False
+
 async def main_loop():
     """The main worker loop."""
     print("👂 Starting to listen for messages...")
@@ -83,35 +125,22 @@ async def main_loop():
                 for message_id, message_data in messages:
                     print(f"Received message {message_id}: {message_data}")
 
-                    user_id = message_data.get('userId')
-                    query = message_data.get('body')
+                    success = await process_message_with_retry(message_id, message_data)
 
-                    if not user_id or not query:
-                        print("Message missing userId or body, skipping.")
+                    if success:
                         r.xack(STREAM_IN, CONSUMER_GROUP, message_id)
-                        continue
-
-                    # Execute the use case
-                    bot_response_text = await process_chat_message_use_case.execute(
-                        user_id=user_id,
-                        user_query=query
-                    )
-
-                    # Prepare the output payload
-                    output_payload = {
-                        'userId': user_id,
-                        'body': bot_response_text
-                    }
-
-                    # Publish the response
-                    r.xadd(STREAM_OUT, output_payload)
-                    print(f"Published response for {user_id} to {STREAM_OUT}")
-
-                    # Acknowledge the message
-                    r.xack(STREAM_IN, CONSUMER_GROUP, message_id)
+                        print(f"Successfully processed and acknowledged message {message_id}")
+                    else:
+                        # Move to DLQ
+                        dlq_payload = message_data.copy()
+                        dlq_payload['error_service'] = 'main-api'
+                        dlq_payload['error_timestamp'] = time.time()
+                        r.xadd(DEAD_LETTER_QUEUE, dlq_payload)
+                        r.xack(STREAM_IN, CONSUMER_GROUP, message_id) # Ack original message
+                        print(f"Moved message {message_id} to DLQ '{DEAD_LETTER_QUEUE}'")
 
         except Exception as e:
-            print(f"An error occurred: {e}")
+            print(f"A critical error occurred in main loop: {e}")
             time.sleep(5)
 
 if __name__ == "__main__":
