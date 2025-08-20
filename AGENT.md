@@ -7,20 +7,19 @@ Este documento es la fuente de verdad única y centralizada para cualquier agent
 EVA es una plataforma SaaS multi-cliente para desplegar agentes de ventas de IA. El proyecto sigue una arquitectura de microservicios, completamente orquestada por Docker Compose para un despliegue unificado en un único servidor.
 
 *   **Arquitectura Unificada:** Todos los servicios, **incluido el frontend**, se ejecutan como contenedores Docker en el mismo entorno, gestionados por `docker-compose.prod.yml`.
-*   **`frontend` (Next.js):** El dashboard de usuario para gestionar agentes y visualizar conversaciones. Se sirve a través del reverse proxy Nginx.
+*   **`traefik`:** Actúa como el reverse proxy. Enruta el tráfico entrante a los servicios correspondientes (`frontend`, `main-api`) basándose en reglas definidas en etiquetas de Docker. Gestiona automáticamente la obtención y renovación de certificados SSL/TLS de Let's Encrypt.
+*   **`frontend` (Next.js):** El dashboard de usuario para gestionar agentes y visualizar conversaciones. Se sirve a través del reverse proxy Traefik.
 *   **`main-api` (Python/FastAPI):** El cerebro del sistema. Gestiona la lógica de negocio, el enrutamiento de modelos de IA y la API REST principal. Utiliza un cliente Redis asíncrono para no bloquear el event loop.
 *   **`whatsapp-gateway` (Node.js):** El punto de entrada para los mensajes de WhatsApp. Publica eventos en un stream de Redis.
 *   **`transcription-worker` (Python):** Un servicio que consume eventos de audio de Redis, los transcribe y publica el texto resultante en otro stream. También es completamente asíncrono.
-*   **`nginx`:** El reverse proxy que gestiona todo el tráfico entrante, lo dirige al servicio correspondiente y maneja la terminación SSL con certificados de Let's Encrypt, que se renuevan automáticamente.
 *   **`redis`:** Actúa como un message broker de alto rendimiento utilizando Redis Streams.
 
 ## 2. Estructura del Proyecto
 
 *   `/frontend`: Contiene la aplicación Next.js.
 *   `/services`: Contiene todos los microservicios del backend (`main-api`, `whatsapp-gateway`, `transcription-worker`).
-*   `/nginx`: Contiene la plantilla de configuración de Nginx (`nginx.prod.conf.template`), que se procesa en el arranque para inyectar el nombre de dominio.
 *   `/supabase`: Almacena las migraciones de la base de datos.
-*   `/docker-compose.prod.yml`: **El único archivo de orquestación.** Define todos los servicios y sus interacciones.
+*   `/docker-compose.prod.yml`: **El único archivo de orquestación.** Define todos los servicios y sus interacciones, incluyendo la configuración de enrutamiento de Traefik a través de etiquetas.
 *   `/.github/workflows/deploy.yml`: Define el pipeline de CI/CD completamente automatizado.
 
 ## 3. Comandos de Compilación y Pruebas
