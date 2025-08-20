@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import MainLayout from '@/components/layout/MainLayout';
 
-// Define the type for our agent data
+// Define el tipo para nuestros datos de agente
 type Agent = {
   id?: string;
   name: string;
@@ -32,8 +32,8 @@ export default function AgentDetailPage({ params }: { params: { id:string } }) {
           .single();
 
         if (error || !data) {
-          console.error('Error fetching agent:', error);
-          alert('Failed to fetch agent data. Redirecting to dashboard.');
+          console.error('Error al obtener el agente:', error);
+          alert('Fallo al obtener los datos del agente. Redirigiendo al panel de control.');
           router.push('/dashboard');
         } else {
           setAgent(data);
@@ -49,24 +49,25 @@ export default function AgentDetailPage({ params }: { params: { id:string } }) {
 
     let error;
     if (isNew) {
-      // Create new agent
+      // Crear nuevo agente
       ({ error } = await supabase.from('agents').insert({ ...agent }));
     } else {
-      // Update existing agent
+      // Actualizar agente existente
       ({ error } = await supabase.from('agents').update({ ...agent }).eq('id', params.id));
     }
 
     if (error) {
-      alert(`Error saving agent: ${error.message}`);
+      alert(`Error al guardar el agente: ${error.message}`);
     } else {
-      alert('Agent saved successfully!');
+      alert('¡Agente guardado exitosamente!');
       router.push('/dashboard');
-      router.refresh(); // To reflect changes on the dashboard list
+      router.refresh(); // Para reflejar los cambios en la lista del panel de control
     }
   };
 
   const handleStatusToggle = async () => {
     const newStatus = agent.status === 'active' ? 'paused' : 'active';
+    const newStatusSpanish = newStatus === 'active' ? 'activo' : 'pausado';
     setAgent({ ...agent, status: newStatus });
 
     const { error } = await supabase
@@ -75,30 +76,30 @@ export default function AgentDetailPage({ params }: { params: { id:string } }) {
       .eq('id', params.id);
 
     if (error) {
-      alert(`Error updating status: ${error.message}`);
-      // Revert state if update fails
+      alert(`Error al actualizar el estado: ${error.message}`);
+      // Revertir el estado si la actualización falla
       setAgent({ ...agent, status: agent.status });
     } else {
-      alert(`Agent is now ${newStatus}.`);
+      alert(`El agente ahora está ${newStatusSpanish}.`);
     }
   };
 
   if (loading) {
-    return <MainLayout><p>Loading agent...</p></MainLayout>;
+    return <MainLayout><p>Cargando agente...</p></MainLayout>;
   }
 
   return (
     <MainLayout>
-      <h1 className="text-3xl font-bold mb-8">{isNew ? 'Create New Agent' : `Edit Agent: ${agent.name}`}</h1>
+      <h1 className="text-3xl font-bold mb-8">{isNew ? 'Crear Nuevo Agente' : `Editar Agente: ${agent.name}`}</h1>
 
       <form onSubmit={handleSave} className="bg-white p-8 rounded-lg shadow-md">
-        {/* Emergency Pause */}
+        {/* Pausa de Emergencia */}
         {!isNew && (
           <div className="flex items-center justify-between p-4 bg-yellow-100 border-l-4 border-yellow-500 rounded-md mb-8">
             <div>
-              <h3 className="font-bold text-yellow-800">Emergency Pause Mode</h3>
+              <h3 className="font-bold text-yellow-800">Modo de Pausa de Emergencia</h3>
               <p className="text-sm text-yellow-700">
-                Instantly pause or resume all interactions for this agent.
+                Pausa o reanuda instantáneamente todas las interacciones de este agente.
               </p>
             </div>
             <button
@@ -108,61 +109,61 @@ export default function AgentDetailPage({ params }: { params: { id:string } }) {
                 agent.status === 'active' ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'
               }`}
             >
-              {agent.status === 'active' ? 'PAUSE' : 'RESUME'}
+              {agent.status === 'active' ? 'PAUSAR' : 'REANUDAR'}
             </button>
           </div>
         )}
 
         <div className="mb-6">
-          <label htmlFor="name" className="block text-lg font-medium mb-2">Agent Name</label>
+          <label htmlFor="name" className="block text-lg font-medium mb-2">Nombre del Agente</label>
           <input
             id="name"
             type="text"
             value={agent.name}
             onChange={(e) => setAgent({ ...agent, name: e.target.value })}
             className="w-full p-3 border rounded-md"
-            placeholder="e.g., Sales Assistant"
+            placeholder="Ej: Asistente de Ventas"
             required
           />
         </div>
 
         <div className="mb-6">
-          <label htmlFor="base_prompt" className="block text-lg font-medium mb-2">Base Prompt</label>
+          <label htmlFor="base_prompt" className="block text-lg font-medium mb-2">Prompt Base</label>
           <textarea
             id="base_prompt"
             value={agent.base_prompt}
             onChange={(e) => setAgent({ ...agent, base_prompt: e.target.value })}
             className="w-full p-3 border rounded-md h-48"
-            placeholder="Describe the agent's personality, role, and instructions..."
+            placeholder="Describe la personalidad, el rol y las instrucciones del agente..."
             required
           />
         </div>
 
         <div className="mb-6">
-          <label htmlFor="guardrails" className="block text-lg font-medium mb-2">Guardrails</label>
+          <label htmlFor="guardrails" className="block text-lg font-medium mb-2">Reglas de Comportamiento</label>
           <textarea
             id="guardrails"
             value={agent.guardrails || ''}
             onChange={(e) => setAgent({ ...agent, guardrails: e.target.value })}
             className="w-full p-3 border rounded-md h-32"
-            placeholder="Define forbidden topics or rules for the agent. e.g., 'Do not discuss politics.'"
+            placeholder="Define temas prohibidos o reglas para el agente. Ej: 'No discutir sobre política.'"
           />
         </div>
 
-        {/* RAG Document Upload - Placeholder */}
+        {/* Carga de Documentos RAG - Placeholder */}
         <div className="mb-8">
-          <label className="block text-lg font-medium mb-2">Knowledge Base (RAG)</label>
+          <label className="block text-lg font-medium mb-2">Base de Conocimiento (RAG)</label>
           <div className="p-6 border-2 border-dashed rounded-md text-center">
-            <p className="text-gray-500">Document upload functionality coming soon.</p>
+            <p className="text-gray-500">La funcionalidad de carga de documentos estará disponible próximamente.</p>
           </div>
         </div>
 
         <div className="flex justify-end">
           <button type="button" onClick={() => router.back()} className="px-6 py-2 mr-4 bg-gray-200 rounded hover:bg-gray-300">
-            Cancel
+            Cancelar
           </button>
           <button type="submit" className="px-6 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
-            Save Agent
+            Guardar Agente
           </button>
         </div>
       </form>
