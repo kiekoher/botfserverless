@@ -18,7 +18,7 @@ export default async function DashboardPage() {
     .eq('user_id', user.id);
 
   if (error) {
-    console.error('Error fetching agents:', error);
+    console.error('Error al obtener agentes:', error);
   }
 
   async function toggleAgentStatus(formData: FormData) {
@@ -36,20 +36,25 @@ export default async function DashboardPage() {
       .eq('id', agentId);
 
     if (error) {
-      console.error("Failed to update agent status:", error);
-      redirect('/dashboard?error=Could not update agent status');
+      console.error("Fallo al actualizar el estado del agente:", error);
+      redirect('/dashboard?error=No se pudo actualizar el estado del agente');
     }
 
-    // Revalidate the dashboard path to show the new status
+    // Revalida la ruta del dashboard para mostrar el nuevo estado
     revalidatePath('/dashboard');
   }
+
+  const statusTranslations: { [key: string]: string } = {
+    active: 'activo',
+    paused: 'pausado',
+  };
 
   return (
     <MainLayout>
       <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold">My Agents</h1>
+        <h1 className="text-3xl font-bold">Mis Agentes</h1>
         <Link href="/dashboard/agents/new" className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">
-          + New Agent
+          + Nuevo Agente
         </Link>
       </div>
       <div className="bg-white p-6 rounded-lg shadow-md">
@@ -62,7 +67,7 @@ export default async function DashboardPage() {
                   <span className={`px-3 py-1 text-sm rounded-full ${
                     agent.status === 'active' ? 'bg-green-200 text-green-800' : 'bg-yellow-200 text-yellow-800'
                   }`}>
-                    {agent.status}
+                    {statusTranslations[agent.status] || agent.status}
                   </span>
                   <form action={toggleAgentStatus}>
                     <input type="hidden" name="agent_id" value={agent.id} />
@@ -70,18 +75,18 @@ export default async function DashboardPage() {
                     <button type="submit" className={`px-3 py-1 text-sm text-white rounded ${
                       agent.status === 'active' ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'
                     }`}>
-                      {agent.status === 'active' ? 'Pause' : 'Resume'}
+                      {agent.status === 'active' ? 'Pausar' : 'Reanudar'}
                     </button>
                   </form>
                   <Link href={`/dashboard/agents/${agent.id}`} className="text-blue-500 hover:underline">
-                    Edit
+                    Editar
                   </Link>
                 </div>
               </li>
             ))}
           </ul>
         ) : (
-          <p>You haven&apos;t created any agents yet.</p>
+          <p>Aún no has creado ningún agente.</p>
         )}
       </div>
     </MainLayout>

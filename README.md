@@ -1,48 +1,48 @@
-# EVA: AI Sales Agent Platform
+# EVA: Plataforma de Agentes de Ventas con IA
 
-EVA is a multi-tenant SaaS platform for deploying AI-powered sales agents. This repository contains the complete, containerized infrastructure for the platform, designed for automated deployment and scalability.
+EVA es una plataforma SaaS multi-tenant para desplegar agentes de ventas impulsados por inteligencia artificial. Este repositorio contiene la infraestructura completa y contenerizada de la plataforma, diseñada para un despliegue automatizado y escalable.
 
-The system follows a microservice architecture and is orchestrated entirely by Docker Compose. All services, including the frontend, are designed to run on a single production server.
+El sistema sigue una arquitectura de microservicios y está completamente orquestado por Docker Compose. Todos los servicios, incluido el frontend, están diseñados para ejecutarse en un único servidor de producción.
 
-## Architecture Overview
+## Descripción General de la Arquitectura
 
--   **`frontend` (Next.js):** The user-facing dashboard for managing agents, viewing conversations, and configuring accounts. It is served as a Docker container.
--   **`main-api` (Python/FastAPI):** The core of the application. It handles all business logic, manages AI model routing, and serves the primary REST API. It communicates with other services asynchronously.
--   **`whatsapp-gateway` (Node.js):** The entry point for all user messages from WhatsApp. It acts as a bridge, receiving messages, uploading media, and publishing events to a Redis stream.
--   **`transcription-worker` (Python):** A dedicated worker that listens for audio messages on the Redis stream, transcribes them using Google Speech-to-Text, and publishes the text back for the `main-api` to process.
--   **`nginx` (Nginx):** A reverse proxy that routes incoming traffic to the appropriate service (`frontend` or `main-api`) and handles SSL termination with auto-renewing certificates from Let's Encrypt.
--   **`redis` (Redis):** Used as a high-performance message broker (via Redis Streams) to facilitate asynchronous communication between the microservices.
--   **`loki` & `promtail`:** A comprehensive logging stack to aggregate and view logs from all running containers.
+-   **`frontend` (Next.js):** El panel de control orientado al usuario para gestionar agentes, ver conversaciones y configurar cuentas. Se sirve como un contenedor Docker.
+-   **`main-api` (Python/FastAPI):** El núcleo de la aplicación. Maneja toda la lógica de negocio, gestiona el enrutamiento de modelos de IA y sirve la API REST principal. Se comunica con otros servicios de forma asíncrona.
+-   **`whatsapp-gateway` (Node.js):** El punto de entrada para todos los mensajes de usuario desde WhatsApp. Actúa como un puente, recibiendo mensajes, subiendo archivos multimedia y publicando eventos en un stream de Redis.
+-   **`transcription-worker` (Python):** Un trabajador dedicado que escucha los mensajes de audio en el stream de Redis, los transcribe usando Google Speech-to-Text y publica el texto de vuelta para que `main-api` lo procese.
+-   **`nginx` (Nginx):** Un proxy inverso que enruta el tráfico entrante al servicio apropiado (`frontend` o `main-api`) y maneja la terminación SSL con certificados auto-renovables de Let's Encrypt.
+-   **`redis` (Redis):** Utilizado como un message broker de alto rendimiento (a través de Redis Streams) para facilitar la comunicación asíncrona entre los microservicios.
+-   **`loki` & `promtail`:** Una pila de logging completa para agregar y ver los logs de todos los contenedores en ejecución.
 
 ---
 
-## 🚀 Getting Started
+## 🚀 Cómo Empezar
 
-### 1. Prerequisites
+### 1. Prerrequisitos
 
 -   Docker & Docker Compose
--   A registered domain name pointing to your server's IP address.
--   A Docker Hub account for image storage.
+-   Un nombre de dominio registrado que apunte a la dirección IP de su servidor.
+-   Una cuenta de Docker Hub para el almacenamiento de imágenes.
 
-### 2. Environment Variables
+### 2. Variables de Entorno
 
-The entire system is configured using environment variables. For local development or production, copy the example file:
+Todo el sistema se configura mediante variables de entorno. Para desarrollo local o producción, copie el archivo de ejemplo:
 
 ```bash
 cp .env.example .env.prod
 ```
 
-Then, fill in the values in `.env.prod`. Refer to the comments in the file for guidance on each variable.
+Luego, complete los valores en `.env.prod`. Consulte los comentarios en el archivo como guía para cada variable.
 
-### 3. Running the System Locally
+### 3. Ejecutando el Sistema Localmente
 
-To build and run all services in detached mode, use the production docker-compose file, which is the single source of truth for the project's architecture:
+Para construir y ejecutar todos los servicios en modo detached, use el archivo docker-compose de producción, que es la única fuente de verdad para la arquitectura del proyecto:
 
 ```bash
 docker-compose -f docker-compose.prod.yml up --build -d
 ```
 
-To view the logs for a specific service (e.g., `whatsapp-gateway` to scan the QR code):
+Para ver los logs de un servicio específico (por ejemplo, `whatsapp-gateway` para escanear el código QR):
 
 ```bash
 docker-compose -f docker-compose.prod.yml logs -f whatsapp-gateway
@@ -50,54 +50,54 @@ docker-compose -f docker-compose.prod.yml logs -f whatsapp-gateway
 
 ---
 
-## 🧪 Testing
+## 🧪 Pruebas
 
-The project includes an automated testing suite for both backend and frontend, which is executed automatically in the CI/CD pipeline.
+El proyecto incluye una suite de pruebas automatizadas tanto para el backend como para el frontend, que se ejecuta automáticamente en el pipeline de CI/CD.
 
-To run the tests manually, first ensure the services are running:
+Para ejecutar las pruebas manualmente, primero asegúrese de que los servicios estén en funcionamiento:
 
 ```bash
-# Start all services
+# Iniciar todos los servicios
 docker-compose -f docker-compose.prod.yml up -d
 
-# Wait a few seconds for services to initialize, then run tests
+# Esperar unos segundos para que los servicios se inicien, luego ejecutar las pruebas
 ```
 
--   **Backend Tests (`main-api`):**
+-   **Pruebas de Backend (`main-api`):**
     ```bash
     docker-compose -f docker-compose.prod.yml exec main-api pytest
     ```
 
--   **Frontend Tests:**
+-   **Pruebas de Frontend:**
     ```bash
     docker-compose -f docker-compose.prod.yml exec frontend npm test
     ```
 
 ---
 
-## 🚀 Production Deployment (CI/CD)
+## 🚀 Despliegue en Producción (CI/CD)
 
-This project is configured for **fully automated deployments** to a production environment using GitHub Actions.
+Este proyecto está configurado para **despliegues totalmente automatizados** a un entorno de producción usando GitHub Actions.
 
-### How It Works
+### Cómo Funciona
 
-The deployment pipeline is defined in `.github/workflows/deploy.yml` and triggers on every push to the `main` branch. It consists of three stages:
+El pipeline de despliegue está definido en `.github/workflows/deploy.yml` y se activa en cada push a la rama `main`. Consta de tres etapas:
 
-1.  **Test and Lint:** Automatically runs all tests and code quality checks for all services. This job must pass before deployment can proceed.
-2.  **Build and Push:** Builds new Docker images for all services, tags them with `latest`, and pushes them to your Docker Hub registry.
-3.  **Deploy:** Connects to the production server via SSH, creates the `.env.prod` file from GitHub Secrets, pulls the latest Docker images from Docker Hub, and restarts the services using `docker-compose.prod.yml`.
+1.  **Test y Lint:** Ejecuta automáticamente todas las pruebas y verificaciones de calidad de código para todos los servicios. Este trabajo debe pasar antes de que el despliegue pueda continuar.
+2.  **Build y Push:** Construye nuevas imágenes de Docker para todos los servicios, las etiqueta con `latest` y las sube a su registro de Docker Hub.
+3.  **Deploy:** Se conecta al servidor de producción a través de SSH, crea el archivo `.env.prod` a partir de los GitHub Secrets, descarga las últimas imágenes de Docker desde Docker Hub y reinicia los servicios usando `docker-compose.prod.yml`.
 
-### GitHub Secrets Configuration
+### Configuración de GitHub Secrets
 
-For the automation to work, you must configure the following secrets in your GitHub repository settings under **Settings > Secrets and variables > Actions**:
+Para que la automatización funcione, debe configurar los siguientes secrets en la configuración de su repositorio de GitHub en **Settings > Secrets and variables > Actions**:
 
--   `DOCKERHUB_USERNAME`: Your username for Docker Hub.
--   `DOCKERHUB_TOKEN`: A Docker Hub access token with read/write permissions.
--   `SSH_HOST`: The IP address or domain of your production server.
--   `SSH_USERNAME`: The username for SSH access.
--   `SSH_PRIVATE_KEY`: The private SSH key for accessing the server.
--   `DOMAIN_NAME`: The domain name for your service (e.g., `eva.yourcompany.com`).
--   `CERTBOT_EMAIL`: The email address for Let's Encrypt notifications.
--   All other secrets required by the application (e.g., `SUPABASE_URL`, `GOOGLE_API_KEY`, etc.).
+-   `DOCKERHUB_USERNAME`: Su nombre de usuario de Docker Hub.
+-   `DOCKERHUB_TOKEN`: Un token de acceso de Docker Hub con permisos de lectura/escritura.
+-   `SSH_HOST`: La dirección IP o el dominio de su servidor de producción.
+-   `SSH_USERNAME`: El nombre de usuario para el acceso SSH.
+-   `SSH_PRIVATE_KEY`: La clave SSH privada para acceder al servidor.
+-   `DOMAIN_NAME`: El nombre de dominio para su servicio (por ejemplo, `eva.yourcompany.com`).
+-   `CERTBOT_EMAIL`: La dirección de correo electrónico para las notificaciones de Let's Encrypt.
+-   Todos los demás secrets requeridos por la aplicación (por ejemplo, `SUPABASE_URL`, `GOOGLE_API_KEY`, etc.).
 
-With this setup, your infrastructure is fully automated. Simply push to `main`, and your changes will be tested and deployed.
+Con esta configuración, su infraestructura está totalmente automatizada. Simplemente haga push a `main`, y sus cambios serán probados y desplegados.
