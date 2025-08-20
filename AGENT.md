@@ -1,62 +1,106 @@
-# AGENT.md: Manifiesto del Proyecto EVA
+Claro, he añadido una sección detallada sobre el flujo de onboarding al `AGENT.md` de Jules. Este flujo está diseñado para ser una guía paso a paso que asegura que un nuevo usuario pueda configurar y lanzar su agente de manera eficiente y completa.
 
-Este documento es la fuente de verdad única y centralizada para cualquier agente de codificación de IA (como Jules o Codex) que interactúe con este repositorio. Su propósito es proporcionar todo el contexto necesario sobre la arquitectura, estructura, comandos y convenciones del proyecto.
+Aquí está el documento actualizado:
 
-## 1. Descripción General y Arquitectura
+---
 
-EVA es una plataforma SaaS multi-cliente para desplegar agentes de ventas de IA. El proyecto sigue una arquitectura de microservicios, completamente orquestada por Docker Compose para un despliegue unificado en un único servidor.
+### **`AGENT.md`**
 
-*   **Arquitectura Unificada:** Todos los servicios, **incluido el frontend**, se ejecutan como contenedores Docker en el mismo entorno, gestionados por `docker-compose.prod.yml`.
-*   **`traefik`:** Actúa como el reverse proxy. Enruta el tráfico entrante a los servicios correspondientes (`frontend`, `main-api`) basándose en reglas definidas en etiquetas de Docker. Gestiona automáticamente la obtención y renovación de certificados SSL/TLS de Let's Encrypt.
-*   **`frontend` (Next.js):** El dashboard de usuario para gestionar agentes y visualizar conversaciones. Se sirve a través del reverse proxy Traefik.
-*   **`main-api` (Python/FastAPI):** El cerebro del sistema. Gestiona la lógica de negocio, el enrutamiento de modelos de IA y la API REST principal. Utiliza un cliente Redis asíncrono para no bloquear el event loop.
-*   **`whatsapp-gateway` (Node.js):** El punto de entrada para los mensajes de WhatsApp. Publica eventos en un stream de Redis.
-*   **`transcription-worker` (Python):** Un servicio que consume eventos de audio de Redis, los transcribe y publica el texto resultante en otro stream. También es completamente asíncrono.
-*   **`redis`:** Actúa como un message broker de alto rendimiento utilizando Redis Streams.
+# **Agent Persona: Jules**
 
-## 2. Estructura del Proyecto
+Este documento define la misión, la hoja de ruta de implementación y los principios técnicos del agente "Jules". Jules es un ecosistema de IA conversacional diseñado para la excelencia en ventas, construido sobre una base tecnológica robusta y escalable.
 
-*   `/frontend`: Contiene la aplicación Next.js.
-*   `/services`: Contiene todos los microservicios del backend (`main-api`, `whatsapp-gateway`, `transcription-worker`).
-*   `/supabase`: Almacena las migraciones de la base de datos.
-*   `/docker-compose.prod.yml`: **El único archivo de orquestación.** Define todos los servicios y sus interacciones, incluyendo la configuración de enrutamiento de Traefik a través de etiquetas.
-*   `/.github/workflows/deploy.yml`: Define el pipeline de CI/CD completamente automatizado.
+## **Misión Principal**
 
-## 3. Comandos de Compilación y Pruebas
+La misión de Jules es convertirse en la plataforma definitiva para desplegar agentes de ventas de IA de élite. Esto se logrará a través de un **núcleo de IA multi-modelo** de rendimiento óptimo y un **dashboard de gestión intuitivo y profesional** que abstraiga toda la complejidad técnica para el usuario final.
 
-Para que un agente de IA pueda verificar su propio trabajo, debe usar los siguientes comandos desde la raíz del repositorio. **Siempre se debe usar el archivo `docker-compose.prod.yml`.**
+## **Plan de Evolución Tecnológica**
 
-*   **Levantar todos los servicios en segundo plano:**
-    ```bash
-    docker-compose -f docker-compose.prod.yml up --build -d
-    ```
-*   **Verificar logs de un servicio:**
-    ```bash
-    docker-compose -f docker-compose.prod.yml logs -f <nombre-del-servicio>
-    ```
-*   **Ejecutar Linters y Pruebas (como en el CI):**
-    ```bash
-    # Backend Linter y Pruebas
-    docker-compose -f docker-compose.prod.yml exec main-api pytest
-    docker-compose -f docker-compose.prod.yml exec main-api ruff check . --fix
+Para alcanzar esta misión, se ejecutará un plan de dos fases centrado en la consolidación del backend de IA y la profesionalización del frontend.
 
-    # Frontend Linter y Pruebas
-    docker-compose -f docker-compose.prod.yml exec frontend npm run lint
-    docker-compose -f docker-compose.prod.yml exec frontend npm test
-    ```
+### **1. Evolución del Frontend (Dashboard)**
 
-## 4. Estilo de Código y Convenciones
+Se potenciará el dashboard existente para convertirlo en un centro de control de calidad de producción.
 
-*   **Python**: Formateado con **Ruff**. Usar `ruff format .` y `ruff check . --fix`.
-*   **TypeScript/React**: Formateado con **ESLint** (`npm run lint`).
-*   **Git**: Los mensajes de commit deben seguir el estándar de **Conventional Commits**.
+* **Estado Actual:**
+    * El frontend está construido con **Next.js**, **TypeScript** y **Tailwind CSS**.
+    * Utiliza el App Router de Next.js para el enrutamiento basado en directorios.
+    * La autenticación de usuarios se gestiona a través de un middleware y el cliente de **Supabase**.
 
-## 5. Flujo de Trabajo y Despliegue (CI/CD)
+* **Próximos Pasos y Decisiones de Implementación:**
 
-*   **El despliegue es 100% automatizado.**
-*   Cualquier `push` a la rama `main` dispara el pipeline de GitHub Actions definido en `.github/workflows/deploy.yml`.
-*   El pipeline realiza las siguientes acciones:
-    1.  **Ejecuta todas las pruebas y linters.**
-    2.  **Construye y publica** nuevas imágenes de Docker para cada servicio en Docker Hub.
-    3.  **Se conecta por SSH** al servidor de producción, crea el archivo `.env.prod` a partir de los GitHub Secrets, descarga las nuevas imágenes y reinicia los servicios.
-*   **No existe un proceso de despliegue manual.** La única fuente de verdad para el despliegue es el workflow de GitHub Actions.
+    1.  **Adoptar TanStack React Query para la Gestión del Estado del Servidor:**
+        * **Decisión:** Se integrará `@tanstack/react-query` como la solución estándar para manejar el fetching, cacheo y sincronización de datos con la API. Esto eliminará la gestión manual de estados de carga/error y proporcionará una experiencia de usuario más fluida y optimista.
+
+    2.  **Expandir la Estructura de Páginas del Dashboard:**
+        * **Decisión:** Se crearán las siguientes páginas y sus componentes asociados dentro del directorio `/dashboard`, siguiendo la estructura del App Router:
+            * `/knowledge`: Para la gestión de la base de conocimiento del agente (subida y listado de documentos).
+            * `/config`: Para la configuración detallada del comportamiento del agente.
+            * `/quality`: Para la auditoría y análisis de calidad de las conversaciones.
+            * `/billing`: Para la gestión de la facturación y suscripción del cliente.
+            * `/onboarding`: Una guía paso a paso para nuevos clientes.
+            * `/reports/opportunity-briefs`: Página para visualizar resúmenes de oportunidades de venta.
+            * `/reports/performance-log`: Un registro detallado del rendimiento del agente.
+            * `/reports/executive-summaries`: Informes ejecutivos consolidados.
+
+    3.  **Centralizar la Lógica de Acceso a la API:**
+        * **Decisión:** Se creará un directorio `src/services` o `src/lib/api` para centralizar todas las funciones que interactúan con la API del backend. Cada función utilizará el token de sesión de Supabase para realizar llamadas autenticadas, similar al enfoque del frontend de EVA.
+
+    4.  **Implementar un Diseño Profesional y Coherente:**
+        * **Decisión:** La UI/UX se refinará aplicando principios de diseño profesional. Se establecerá un sistema de diseño basado en una **retícula consistente, jerarquía tipográfica clara y espaciado predecible**, inspirándose en los conceptos del libro "Thinking with Type" para garantizar una interfaz de alta calidad.
+
+### **2. Consolidación del Núcleo de IA ("Santo Grial")**
+
+Se optimizará el motor de IA para maximizar el rendimiento y minimizar los costos, utilizando el mejor modelo para cada tarea específica.
+
+* **Estado Actual:**
+    * El backend ya cuenta con un `ai_router.py` en la `main-api`.
+    * El router tiene la capacidad de interactuar con múltiples proveedores de IA, incluyendo **Gemini, DeepSeek y OpenAI** a través de sus respectivos adaptadores.
+
+* **Próximos Pasos y Decisiones de Implementación:**
+
+    1.  **Especialización de Modelos por Tarea:**
+        * **Decisión:** Se refinará la lógica del `ai_router.py` para asignar modelos específicos a tareas concretas, materializando la arquitectura "Santo Grial":
+            * **Comunicación con el Cliente:** Se utilizará **Gemini 1.5 Flash** por su bajo costo y alta velocidad, ideal para interacciones en tiempo real.
+            * **Extracción de Datos (JSON):** Se usará **DeepSeek-Chat** por su excelente rendimiento en seguimiento de instrucciones y generación de formatos estructurados a un costo mínimo.
+            * **Análisis y Auditoría (Backend):** Se empleará **DeepSeek-V2** en los workers de análisis por su gran capacidad analítica y bajo costo para tareas asíncronas que no impactan la latencia del usuario.
+
+    2.  **Estandarización del Motor de Embeddings para RAG:**
+        * **Decisión:** Para garantizar la máxima calidad en el sistema de Retrieval-Augmented Generation (RAG), se utilizará **`text-embedding-3-large` de OpenAI** como el motor de embeddings estándar. Se implementará la lógica necesaria para que el worker de embeddings utilice este modelo para procesar todos los documentos de la base de conocimiento.
+
+    3.  **Implementación de Transcripción de Audio Local:**
+        * **Decisión:** Para asegurar la privacidad y un costo fijo, se utilizará un modelo local **`faster-whisper`** en el worker de transcripción para procesar los mensajes de audio.
+
+### **3. Flujo de Onboarding del Cliente**
+
+Para garantizar una experiencia de usuario fluida y una correcta configuración inicial, se implementará un flujo de onboarding guiado en el dashboard. Este proceso se presentará a los nuevos usuarios la primera vez que inicien sesión y estará siempre accesible desde la página `/onboarding`.
+
+**Objetivo:** Guiar al usuario a través de los 4 pasos esenciales para que su agente sea completamente funcional.
+
+* **Paso 1: ¡Bienvenido a Bordo! - Conecta tu Canal**
+    * **Acción del Usuario:** El usuario deberá conectar su cuenta de WhatsApp. La interfaz mostrará un código QR generado por el `whatsapp-gateway` para que lo escanee con su teléfono.
+    * **Verificación:** El sistema confirmará en tiempo real cuando la conexión se haya establecido correctamente.
+    * **Estado:** Es el paso más crítico. Sin un canal conectado, el agente no puede operar.
+
+* **Paso 2: Define la Personalidad - Configura tu Agente**
+    * **Acción del Usuario:** El usuario accederá a un formulario en la página `/config` donde definirá los aspectos clave de la personalidad de su agente:
+        * **Nombre del Agente:** El nombre que el bot usará para presentarse.
+        * **Producto/Servicio:** Una descripción clara de lo que el agente está vendiendo o promocionando.
+        * **Prompt del Sistema:** Instrucciones detalladas sobre su tono, estilo, objetivos y restricciones.
+    * **Verificación:** El sistema guardará la configuración y confirmará al usuario.
+
+* **Paso 3: Dota de Conocimiento a tu Agente**
+    * **Acción del Usuario:** Se redirigirá al usuario a la página `/knowledge`. Aquí podrá subir los documentos (PDF, TXT, etc.) que formarán la base de conocimiento del agente.
+    * **Interfaz:** Un componente de carga de archivos simple e intuitivo que permita arrastrar y soltar o seleccionar archivos.
+    * **Verificación:** Una vez que el worker de embeddings procese los archivos, estos aparecerán en una lista de "Documentos Activos". Se recomienda subir al menos un documento para completar el paso.
+
+* **Paso 4: ¡Todo Listo! - Activa y Prueba tu Agente**
+    * **Acción del Usuario:** Un botón final para "Activar Agente". Al hacer clic, el sistema cambiará el estado del agente a "Activo" en la base de datos.
+    * **Sugerencia de Prueba:** La interfaz mostrará una sugerencia clara: "¡Tu agente ya está activo! Envía un mensaje de WhatsApp al número conectado para iniciar tu primera conversación."
+    * **Verificación:** El checklist de onboarding se marcará como completado y el usuario será redirigido al dashboard principal (`/dashboard/home`), donde podrá empezar a ver las métricas de las conversaciones entrantes.
+
+## **Principios Guía**
+
+* **Calidad de Producción:** Todo desarrollo se orientará a soluciones robustas, escalables y listas para producción desde el primer día. No habrá "MVPs".
+* **Excelencia en Ingeniería:** Se priorizará la construcción de un sistema correcto y mantenible a largo plazo, evitando atajos que generen deuda técnica.
+* **Empoderamiento del Usuario:** El objetivo final es abstraer toda la complejidad del backend para ofrecer una experiencia de usuario final simple, potente y controlable a través del dashboard.
