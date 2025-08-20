@@ -32,8 +32,9 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# --- MEJORA: Instala curl para el healthcheck ---
-RUN apk add --no-cache curl
+# --- MEJORA IMPLEMENTADA ---
+# Se instala wget, que es la herramienta que usa el healthcheck en docker-compose.prod.yml
+RUN apk add --no-cache wget
 
 # Copy the standalone output from the builder stage.
 # This includes a minimal server.js, node_modules, and required .next files.
@@ -47,3 +48,4 @@ USER node
 
 # Start the application using the standalone server
 CMD ["node", "server.js"]
+

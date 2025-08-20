@@ -1,22 +1,19 @@
 # Stage 1: Builder
 FROM python:3.11-slim as builder
 
-COPY requirements.txt /app/
 WORKDIR /app
-
+COPY requirements.txt ./
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
-
-# Instala las dependencias
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Stage 2: Runner
 FROM python:3.11-slim as runner
 
-# Crea un directorio para el código de la aplicación
 WORKDIR /code
 
-# --- MEJORA: Instala curl Y TAMBIÉN procps (para pgrep) para el healthcheck ---
+# --- MEJORA IMPLEMENTADA ---
+# Se descomenta la línea para instalar las dependencias necesarias para el healthcheck.
 RUN apt-get update && apt-get install -y curl procps && rm -rf /var/lib/apt/lists/*
 
 # Copia el entorno virtual del builder
@@ -33,3 +30,4 @@ ENV PYTHONPATH=/code
 
 # Ejecuta el script como un módulo desde la raíz del código
 CMD ["python", "-m", "app.main"]
+

@@ -22,7 +22,9 @@ services:
     depends_on:
       - redis
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      # --- MEJORA IMPLEMENTADA ---
+      # Se cambia el healthcheck a una prueba de TCP, que es más rápida y no depende de curl.
+      test: ["CMD-SHELL", "nc -z localhost 8000 || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -70,15 +72,14 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-      args:
-        - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL:-}
-        - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY:-}
     container_name: eva_frontend_prod
     restart: unless-stopped
     env_file:
       - .env.prod
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:3000 > /dev/null || exit 1"]
+      # --- MEJORA IMPLEMENTADA ---
+      # Se cambia el healthcheck a una prueba de TCP, que es más rápida y no depende de wget.
+      test: ["CMD-SHELL", "nc -z localhost 3000 || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -105,7 +106,7 @@ services:
       - .env.prod
     command: >
       sh -c "
-        envsubst '$$DOMAIN_NAME' < /etc/nginx/templates/default.conf.template > /etc/nginx/conf.d/default.conf && \
+        envsubst '$$DOMAIN_NAME' < /etc/nginx/templates/default.conf.template > /etc/nginx/conf.d/default.conf &&
         nginx -g 'daemon off;'
       "
     depends_on:
@@ -119,22 +120,18 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  # El resto de los servicios (certbot, loki, promtail) y los volúmenes permanecen igual...
   certbot:
     image: certbot/certbot
     container_name: eva_certbot_prod
-    depends_on:
-      - nginx
-    # --- MEJORA IMPLEMENTADA ---
-    # Se añade el env_file para que el comando pueda acceder a las variables de entorno.
     env_file:
       - .env.prod
     volumes:
       - certbot_conf:/etc/letsencrypt
       - certbot_www:/var/www/certbot
-    # El comando ahora emite el certificado si no existe y luego entra en un bucle para renovarlo cada 12 horas.
     command: >
       sh -c "
-        certbot certonly --webroot --webroot-path=/var/www/certbot --email $${CERTBOT_EMAIL} --agree-tos --no-eff-email -d $${DOMAIN_NAME} || true && \
+        certbot certonly --webroot --webroot-path=/var/www/certbot --email $${CERTBOT_EMAIL} --agree-tos --no-eff-email -d $${DOMAIN_NAME} || true &&
         while true; do sleep 12h & wait $${!}; certbot renew; done
       "
     logging:
@@ -175,3 +172,4 @@ volumes:
   whatsapp_session_prod:
   certbot_conf:
   certbot_www:
+
