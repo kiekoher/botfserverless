@@ -11,6 +11,37 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  traefik:
+    image: traefik:v2.11
+    container_name: eva_traefik_prod
+    restart: unless-stopped
+    command:
+      - "--api.dashboard=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+      - "--certificatesresolvers.myresolver.acme.httpchallenge=true"
+      - "--certificatesresolvers.myresolver.acme.httpchallenge.entrypoint=web"
+      - "--certificatesresolvers.myresolver.acme.email=${CERTBOT_EMAIL}"
+      - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080" # Traefik Dashboard (for debugging, not exposed to the internet)
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - "traefik_data:/letsencrypt"
+    env_file:
+      - .env.prod
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
   main-api:
     build:
       context: ./services/main-api
@@ -22,8 +53,6 @@ services:
     depends_on:
       - redis
     healthcheck:
-      # --- MEJORA IMPLEMENTADA ---
-      # Se cambia el healthcheck a una prueba de TCP, que es más rápida y no depende de curl.
       test: ["CMD-SHELL", "nc -z localhost 8000 || exit 1"]
       interval: 10s
       timeout: 5s
@@ -33,6 +62,12 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.main-api.rule=Host(`${DOMAIN_NAME}`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.main-api.entrypoints=websecure"
+      - "traefik.http.routers.main-api.tls.certresolver=myresolver"
+      - "traefik.http.services.main-api.loadbalancer.server.port=8000"
 
   whatsapp-gateway:
     build:
@@ -81,8 +116,6 @@ services:
     env_file:
       - .env.prod
     healthcheck:
-      # --- MEJORA IMPLEMENTADA ---
-      # Se cambia el healthcheck a una prueba de TCP, que es más rápida y no depende de wget.
       test: ["CMD-SHELL", "nc -z localhost 3000 || exit 1"]
       interval: 10s
       timeout: 5s
@@ -92,57 +125,12 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-
-  nginx:
-    build:
-      context: ./nginx
-      dockerfile: Dockerfile
-    container_name: eva_nginx_prod
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx/nginx.prod.conf.template:/etc/nginx/templates/default.conf.template:ro
-      - certbot_conf:/etc/letsencrypt
-      - certbot_www:/var/www/certbot
-    env_file:
-      - .env.prod
-    command: >
-      sh -c "
-        envsubst '$$DOMAIN_NAME' < /etc/nginx/templates/default.conf.template > /etc/nginx/conf.d/default.conf &&
-        nginx -g 'daemon off;'
-      "
-    depends_on:
-      main-api:
-        condition: service_healthy
-      frontend:
-        condition: service_healthy
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  # El resto de los servicios (certbot, loki, promtail) y los volúmenes permanecen igual...
-  certbot:
-    image: certbot/certbot
-    container_name: eva_certbot_prod
-    env_file:
-      - .env.prod
-    volumes:
-      - certbot_conf:/etc/letsencrypt
-      - certbot_www:/var/www/certbot
-    command: >
-      sh -c "
-        certbot certonly --webroot --webroot-path=/var/www/certbot --email $${CERTBOT_EMAIL} --agree-tos --no-eff-email -d $${DOMAIN_NAME} || true &&
-        while true; do sleep 12h & wait $${!}; certbot renew; done
-      "
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.frontend.rule=Host(`${DOMAIN_NAME}`)"
+      - "traefik.http.routers.frontend.entrypoints=websecure"
+      - "traefik.http.routers.frontend.tls.certresolver=myresolver"
+      - "traefik.http.services.frontend.loadbalancer.server.port=3000"
 
   loki:
     image: grafana/loki:2.9.0
@@ -174,6 +162,4 @@ services:
 volumes:
   redis_data:
   whatsapp_session_prod:
-  certbot_conf:
-  certbot_www:
-
+  traefik_data:
