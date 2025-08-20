@@ -7,13 +7,9 @@
 __pycache__/
 *.pyc
 .pytest_cache/
-/backend/app/__pycache__/
-/backend/tests/__pycache__/
 
 # Node
 node_modules/
-/frontend/node_modules/
-/whatsapp/node_modules/
 npm-debug.log
 yarn-error.log
 
@@ -21,10 +17,14 @@ yarn-error.log
 !/data/
 /data/*
 !/data/.gitkeep
-/whatsapp/
 /whatsapp_session/
 /whatsapp_session_prod/
+
+# Service-specific ignores
+services/whatsapp-gateway/node_modules/
 
 # Other
 .DS_Store
 *.pem
+*~
+*.sql

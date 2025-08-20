@@ -15,7 +15,7 @@ upstream api_upstream {
 server {
     listen 80;
     listen [::]:80;
-    server_name eva.rdv.net.co;
+    server_name ${DOMAIN_NAME};
 
     # Ruta de salud local de Nginx
     location = /nginx-health {
@@ -41,7 +41,7 @@ server {
     listen 80 default_server;
     listen [::]:80 default_server;
     server_name _;
-    return 301 https://eva.rdv.net.co$request_uri;
+    return 301 https://${DOMAIN_NAME}$request_uri;
 }
 
 # --- MEJORA IMPLEMENTADA ---
@@ -49,11 +49,11 @@ server {
 server {
   listen 443 ssl http2;
   listen [::]:443 ssl http2;
-  server_name eva.rdv.net.co;
+  server_name ${DOMAIN_NAME};
 
   # Configuración de los certificados SSL generados por Certbot
-  ssl_certificate     /etc/letsencrypt/live/eva.rdv.net.co/fullchain.pem;
-  ssl_certificate_key /etc/letsencrypt/live/eva.rdv.net.co/privkey.pem;
+  ssl_certificate     /etc/letsencrypt/live/${DOMAIN_NAME}/fullchain.pem;
+  ssl_certificate_key /etc/letsencrypt/live/${DOMAIN_NAME}/privkey.pem;
   include /etc/letsencrypt/options-ssl-nginx.conf;
   ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
 

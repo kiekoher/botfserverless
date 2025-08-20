@@ -8,8 +8,8 @@ WORKDIR /app
 # Copy package.json and package-lock.json
 COPY package*.json ./
 
-# Install dependencies
-RUN npm install
+# Use npm ci for deterministic builds
+RUN npm ci
 
 # Copy the rest of the application source code
 COPY . .
@@ -23,9 +23,10 @@ ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
 ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
 
 # Build the application
+# The `output: 'standalone'` in next.config.js will create a .next/standalone folder
 RUN npm run build
 
-# Stage 2: Production image - using a standalone Next.js server
+# Stage 2: Production image - using the standalone output
 # Use the same Node.js version for consistency
 FROM node:20-alpine
 
@@ -34,15 +35,15 @@ WORKDIR /app
 # --- MEJORA: Instala curl para el healthcheck ---
 RUN apk add --no-cache curl
 
-# Copy the output of the build from the builder stage
-COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/package.json ./package.json
-
-# Install only the production dependencies.
-RUN npm install --only=production
+# Copy the standalone output from the builder stage.
+# This includes a minimal server.js, node_modules, and required .next files.
+COPY --from=builder /app/.next/standalone ./
 
 # Expose the port the app runs on
 EXPOSE 3000
 
-# Start the application
-CMD ["npm", "start"]
+# Set the user to a non-root user for better security
+USER node
+
+# Start the application using the standalone server
+CMD ["node", "server.js"]
