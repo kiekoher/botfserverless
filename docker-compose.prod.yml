@@ -15,8 +15,6 @@ services:
     image: traefik:v2.11
     container_name: eva_traefik_prod
     restart: unless-stopped
-    # --- MEJORA IMPLEMENTADA ---
-    # Se inyectan las variables explícitamente para asegurar que Traefik las reciba.
     environment:
       - CERTBOT_EMAIL=${CERTBOT_EMAIL}
     command:
@@ -37,8 +35,6 @@ services:
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
       - "traefik_data:/letsencrypt"
-    env_file:
-      - .env.prod
     logging:
       driver: json-file
       options:
@@ -51,12 +47,14 @@ services:
       dockerfile: Dockerfile
     container_name: eva_main_api_prod
     restart: unless-stopped
-    env_file:
-      - .env.prod
-    # --- MEJORA IMPLEMENTADA ---
-    # Se inyecta la variable de dominio para que esté disponible para la interpolación de las etiquetas.
     environment:
       - DOMAIN_NAME=${DOMAIN_NAME}
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_KEY=${SUPABASE_KEY}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - REDIS_HOST=${REDIS_HOST}
     depends_on:
       - redis
     healthcheck:
@@ -82,8 +80,13 @@ services:
       dockerfile: Dockerfile
     container_name: eva_whatsapp_gateway_prod
     restart: unless-stopped
-    env_file:
-      - .env.prod
+    environment:
+      - R2_ENDPOINT_URL=${R2_ENDPOINT_URL}
+      - R2_BUCKET_NAME=${R2_BUCKET_NAME}
+      - R2_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID}
+      - R2_SECRET_ACCESS_KEY=${R2_SECRET_ACCESS_KEY}
+      - REDIS_HOST=${REDIS_HOST}
+      - SUPERVISOR_WHATSAPP_NUMBER=${SUPERVISOR_WHATSAPP_NUMBER}
     volumes:
       - whatsapp_session_prod:/app/
     depends_on:
@@ -100,10 +103,13 @@ services:
       dockerfile: Dockerfile
     container_name: eva_transcription_worker_prod
     restart: unless-stopped
-    env_file:
-      - .env.prod
     environment:
       - GOOGLE_APPLICATION_CREDENTIALS=/app/gcloud-credentials.json
+      - R2_ENDPOINT_URL=${R2_ENDPOINT_URL}
+      - R2_BUCKET_NAME=${R2_BUCKET_NAME}
+      - R2_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID}
+      - R2_SECRET_ACCESS_KEY=${R2_SECRET_ACCESS_KEY}
+      - REDIS_HOST=${REDIS_HOST}
     volumes:
       - ./gcloud-credentials.json:/app/gcloud-credentials.json:ro
     depends_on:
@@ -120,12 +126,10 @@ services:
       dockerfile: Dockerfile
     container_name: eva_frontend_prod
     restart: unless-stopped
-    env_file:
-      - .env.prod
-    # --- MEJORA IMPLEMENTADA ---
-    # Se inyecta la variable de dominio para que esté disponible para la interpolación de las etiquetas.
     environment:
       - DOMAIN_NAME=${DOMAIN_NAME}
+      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
     healthcheck:
       test: ["CMD-SHELL", "nc -z localhost 3000 || exit 1"]
       interval: 10s
