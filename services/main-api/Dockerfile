@@ -13,8 +13,8 @@ FROM python:3.11-slim as runner
 WORKDIR /code
 
 # --- MEJORA IMPLEMENTADA ---
-# Se descomenta la línea para instalar las dependencias necesarias para el healthcheck.
-RUN apt-get update && apt-get install -y curl procps && rm -rf /var/lib/apt/lists/*
+# Se instalan las dependencias necesarias para el healthcheck basado en `nc`.
+RUN apt-get update && apt-get install -y curl procps netcat-openbsd && rm -rf /var/lib/apt/lists/*
 
 # Copia el entorno virtual del builder
 COPY --from=builder /opt/venv /opt/venv
