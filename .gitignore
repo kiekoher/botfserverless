@@ -28,3 +28,4 @@ services/whatsapp-gateway/node_modules/
 *.pem
 *~
 *.sql
+gcloud-credentials.json

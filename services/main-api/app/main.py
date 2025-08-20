@@ -2,6 +2,7 @@ import os
 import time
 import asyncio
 import contextlib
+from contextlib import asynccontextmanager
 from redis.asyncio import Redis, from_url as redis_from_url
 from redis.exceptions import ResponseError
 from typing import Optional
@@ -34,9 +35,48 @@ MAX_RETRIES = 3
 # --------------------------
 #      FastAPI App
 # --------------------------
-app = FastAPI(title="Main API", version="1.0.0")
 _worker_stop_event: Optional[asyncio.Event] = None
 _worker_task: Optional[asyncio.Task] = None
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Manage startup and shutdown events."""
+    global _worker_stop_event, _worker_task
+    print("🚀 FastAPI startup…")
+
+    # Conectar a Redis
+    app.state.redis = redis_from_url(REDIS_URL, decode_responses=True)
+    print("🔌 Redis client created.")
+
+    # Lanzar worker
+    _worker_stop_event = asyncio.Event()
+    _worker_task = asyncio.create_task(main_loop(app.state.redis, _worker_stop_event))
+    print("✅ Worker background task scheduled.")
+
+    yield
+
+    print("🛑 FastAPI shutdown…")
+
+    # Detener worker
+    if _worker_stop_event is not None:
+        _worker_stop_event.set()
+    if _worker_task is not None:
+        try:
+            await asyncio.wait_for(_worker_task, timeout=5)
+        except asyncio.TimeoutError:
+            _worker_task.cancel()
+            with contextlib.suppress(Exception):
+                await _worker_task
+    print("✅ Worker background task stopped.")
+
+    # Cerrar conexión Redis
+    if hasattr(app.state, "redis") and app.state.redis:
+        await app.state.redis.close()
+        print("🔌 Redis connection closed.")
+
+
+app = FastAPI(title="Main API", version="1.0.0", lifespan=lifespan)
 
 # --------------------------
 #   Inicialización de deps
@@ -64,6 +104,7 @@ process_chat_message_use_case = ProcessChatMessage(
     router=ai_router, db_adapter=supabase_adapter
 )
 
+
 # --------------------------
 #   Utilidades del worker
 # --------------------------
@@ -78,21 +119,28 @@ async def ensure_consumer_group(redis_client: Redis):
         return False
 
     try:
-        await redis_client.xgroup_create(STREAM_IN, CONSUMER_GROUP, id="0", mkstream=True)
+        await redis_client.xgroup_create(
+            STREAM_IN, CONSUMER_GROUP, id="0", mkstream=True
+        )
         print(f"[ensure_consumer_group] Consumer group '{CONSUMER_GROUP}' creado.")
     except ResponseError as e:
         if "BUSYGROUP" in str(e):
-            print(f"[ensure_consumer_group] Consumer group '{CONSUMER_GROUP}' ya existe.")
+            print(
+                f"[ensure_consumer_group] Consumer group '{CONSUMER_GROUP}' ya existe."
+            )
         else:
             print(f"[ensure_consumer_group] Error al crear grupo: {e}")
             return False
     return True
 
+
 async def process_message_with_retry(redis_client: Redis, message_id, message_data):
     """Procesa un mensaje con reintentos exponenciales."""
     for attempt in range(MAX_RETRIES):
         try:
-            print(f"Processing message {message_id}, attempt {attempt + 1}/{MAX_RETRIES}")
+            print(
+                f"Processing message {message_id}, attempt {attempt + 1}/{MAX_RETRIES}"
+            )
             user_id = message_data.get("userId")
             query = message_data.get("body")
 
@@ -110,12 +158,17 @@ async def process_message_with_retry(redis_client: Redis, message_id, message_da
             return True
 
         except Exception as e:
-            print(f"Error processing message {message_id} on attempt {attempt + 1}: {e}")
+            print(
+                f"Error processing message {message_id} on attempt {attempt + 1}: {e}"
+            )
             if attempt + 1 == MAX_RETRIES:
-                print(f"Message {message_id} failed after {MAX_RETRIES} attempts. Moving to DLQ.")
+                print(
+                    f"Message {message_id} failed after {MAX_RETRIES} attempts. Moving to DLQ."
+                )
                 return False
             await asyncio.sleep(2**attempt)  # backoff exponencial
     return False
+
 
 async def main_loop(redis_client: Redis, stop_event: asyncio.Event):
     """Bucle principal del worker (no bloquea el arranque HTTP)."""
@@ -137,63 +190,32 @@ async def main_loop(redis_client: Redis, stop_event: asyncio.Event):
             for stream, messages in response:
                 for message_id, message_data in messages:
                     print(f"Received message {message_id}: {message_data}")
-                    success = await process_message_with_retry(redis_client, message_id, message_data)
+                    success = await process_message_with_retry(
+                        redis_client, message_id, message_data
+                    )
 
                     if success:
                         await redis_client.xack(STREAM_IN, CONSUMER_GROUP, message_id)
-                        print(f"Successfully processed and acknowledged message {message_id}")
+                        print(
+                            f"Successfully processed and acknowledged message {message_id}"
+                        )
                     else:
                         dlq_payload = message_data.copy()
                         dlq_payload["error_service"] = "main-api"
                         dlq_payload["error_timestamp"] = time.time()
                         await redis_client.xadd(DEAD_LETTER_QUEUE, dlq_payload)
                         await redis_client.xack(STREAM_IN, CONSUMER_GROUP, message_id)
-                        print(f"Moved message {message_id} to DLQ '{DEAD_LETTER_QUEUE}'")
+                        print(
+                            f"Moved message {message_id} to DLQ '{DEAD_LETTER_QUEUE}'"
+                        )
         except Exception as e:
             print(f"[worker] Critical error in main loop: {e}")
             await asyncio.sleep(5)
 
+
 # --------------------------
-# Ciclo de vida de la App
+# Ciclo de vida de la App manejado por "lifespan" en la creación de FastAPI.
 # --------------------------
-@app.on_event("startup")
-async def on_startup():
-    """Conecta a Redis y lanza el worker en background."""
-    global _worker_stop_event, _worker_task
-    print("🚀 FastAPI startup…")
-
-    # Conectar a Redis
-    app.state.redis = redis_from_url(REDIS_URL, decode_responses=True)
-    print("🔌 Redis client created.")
-
-    # Lanzar worker
-    _worker_stop_event = asyncio.Event()
-    _worker_task = asyncio.create_task(main_loop(app.state.redis, _worker_stop_event))
-    print("✅ Worker background task scheduled.")
-
-@app.on_event("shutdown")
-async def on_shutdown():
-    """Detiene el worker y cierra la conexión Redis."""
-    global _worker_stop_event, _worker_task
-    print("🛑 FastAPI shutdown…")
-
-    # Detener worker
-    if _worker_stop_event is not None:
-        _worker_stop_event.set()
-    if _worker_task is not None:
-        try:
-            await asyncio.wait_for(_worker_task, timeout=5)
-        except asyncio.TimeoutError:
-            _worker_task.cancel()
-            with contextlib.suppress(Exception):
-                await _worker_task
-    print("✅ Worker background task stopped.")
-
-    # Cerrar conexión Redis
-    if hasattr(app.state, "redis") and app.state.redis:
-        await app.state.redis.close()
-        print("🔌 Redis connection closed.")
-
 @app.get("/health")
 async def health(request: Request):
     ok = False
@@ -203,7 +225,9 @@ async def health(request: Request):
         print(f"[health] Redis ping error: {e}")
     return JSONResponse({"status": "ok", "redis": ok})
 
+
 if __name__ == "__main__":
     # Ejecuta uvicorn al invocar: python -m app.main
     import uvicorn
+
     uvicorn.run("app.main:app", host="0.0.0.0", port=8000)
