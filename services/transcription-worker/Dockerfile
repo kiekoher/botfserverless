@@ -3,6 +3,9 @@ FROM python:3.11-slim as builder
 
 WORKDIR /app
 
+# Install system dependencies needed for build
+RUN apt-get update && apt-get install -y --no-install-recommends gcc
+
 COPY requirements.txt ./
 
 RUN python -m venv /opt/venv
@@ -13,20 +16,23 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Stage 2: Runner
 FROM python:3.11-slim as runner
 
-# Crea un directorio para el código de la aplicación
+# Install ffmpeg for audio processing
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg && rm -rf /var/lib/apt/lists/*
+
+# Create a directory for the application code
 WORKDIR /code
 
-# Copia el entorno virtual del builder
+# Copy the virtual environment from the builder
 COPY --from=builder /opt/venv /opt/venv
 
-# Copia el código de la aplicación a la carpeta /code/app
+# Copy the application code to the /code/app folder
 COPY ./app /code/app
 
-# Activa el entorno virtual
+# Activate the virtual environment
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Añade el directorio /code al PYTHONPATH
+# Add the /code directory to PYTHONPATH
 ENV PYTHONPATH=/code
 
-# Ejecuta el script como un módulo
+# Execute the script as a module
 CMD ["python", "-m", "app.main"]
