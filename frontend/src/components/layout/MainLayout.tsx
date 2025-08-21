@@ -1,4 +1,5 @@
 import React from 'react';
+import Link from 'next/link';
 
 const MainLayout = ({ children }: { children: React.ReactNode }) => {
   return (
@@ -9,13 +10,13 @@ const MainLayout = ({ children }: { children: React.ReactNode }) => {
         <nav className="mt-8">
           <ul>
             <li className="mb-4">
-              <a href="/dashboard" className="hover:text-gray-300">Panel de Control</a>
+              <Link href="/dashboard" className="hover:text-gray-300">Panel de Control</Link>
             </li>
             <li className="mb-4">
-              <a href="/dashboard/agents" className="hover:text-gray-300">Agentes</a>
+              <Link href="/dashboard/agents" className="hover:text-gray-300">Agentes</Link>
             </li>
             <li className="mb-4">
-              <a href="/dashboard/settings" className="hover:text-gray-300">Configuración</a>
+              <Link href="/dashboard/settings" className="hover:text-gray-300">Configuración</Link>
             </li>
           </ul>
         </nav>

@@ -32,7 +32,12 @@ Todo el sistema se configura mediante variables de entorno. Para desarrollo loca
 cp .env.example .env.prod
 ```
 
-Luego, complete los valores en `.env.prod`. Consulte los comentarios en el archivo como guía para cada variable.
+Luego, complete los valores en `.env.prod`. Consulte los comentarios en el archivo como guía para cada variable. Para cambiar los modelos usados por Gemini, establezca `GEMINI_EMBED_MODEL` y `GEMINI_CHAT_MODEL`.
+
+Estas variables controlan:
+
+- `GEMINI_EMBED_MODEL`: modelo utilizado para generar embeddings.
+- `GEMINI_CHAT_MODEL`: modelo utilizado para respuestas conversacionales.
 
 ### 3. Ejecutando el Sistema Localmente
 
