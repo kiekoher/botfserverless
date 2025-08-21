@@ -23,16 +23,14 @@ class AIRouter:
         # Simple keyword-based routing
         if "analizar" in query.lower():
             print("Routing to DeepSeek-V2 for analysis.")
-            # return await self.deepseek_v2_adapter.generate_response(full_prompt, history)
-            return f"Analysis of '{query}' (simulated)"
+            return await self.deepseek_v2_adapter.generate_response(full_prompt, history)
         elif "extraer" in query.lower():
             print("Routing to DeepSeek-Chat for data extraction.")
-            # return await self.deepseek_chat_adapter.generate_response(full_prompt, history)
-            return f"Data extracted from '{query}' (simulated)"
+            return await self.deepseek_chat_adapter.generate_response(full_prompt, history)
         elif "?" in query:
             print("Routing to RAG (OpenAI Embeddings) for question answering.")
-            # return await self.openai_embedding_adapter.generate_response_from_rag(query)
-            return f"Answer to '{query}' from RAG (simulated)"
+            # The RAG response generation is still partially simulated, but the call is real.
+            return await self.openai_embedding_adapter.generate_response_from_rag(query)
         else:
             print("Routing to Gemini for general chat.")
             return await self.gemini_adapter.generate_response(prompt=full_prompt, history=history)

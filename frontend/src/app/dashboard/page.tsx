@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import MainLayout from '@/components/layout/MainLayout'
 import Link from 'next/link';
 import { revalidatePath } from 'next/cache';
+import AgentList from '@/components/dashboard/AgentList'; // Import the new component
 
 export default async function DashboardPage() {
   const supabase = createClient()
@@ -12,15 +13,8 @@ export default async function DashboardPage() {
     redirect('/login')
   }
 
-  const { data: agents, error } = await supabase
-    .from('agents')
-    .select('id, name, status')
-    .eq('user_id', user.id);
-
-  if (error) {
-    console.error('Error al obtener agentes:', error);
-  }
-
+  // The server action remains here for now.
+  // A full refactor would move this to a dedicated API endpoint.
   async function toggleAgentStatus(formData: FormData) {
     'use server'
 
@@ -40,14 +34,8 @@ export default async function DashboardPage() {
       redirect('/dashboard?error=No se pudo actualizar el estado del agente');
     }
 
-    // Revalida la ruta del dashboard para mostrar el nuevo estado
     revalidatePath('/dashboard');
   }
-
-  const statusTranslations: { [key: string]: string } = {
-    active: 'activo',
-    paused: 'pausado',
-  };
 
   return (
     <MainLayout>
@@ -57,38 +45,8 @@ export default async function DashboardPage() {
           + Nuevo Agente
         </Link>
       </div>
-      <div className="bg-white p-6 rounded-lg shadow-md">
-        {agents && agents.length > 0 ? (
-          <ul>
-            {agents.map((agent) => (
-              <li key={agent.id} className="flex justify-between items-center py-3 border-b last:border-b-0">
-                <span className="font-medium">{agent.name}</span>
-                <div className="flex items-center space-x-4">
-                  <span className={`px-3 py-1 text-sm rounded-full ${
-                    agent.status === 'active' ? 'bg-green-200 text-green-800' : 'bg-yellow-200 text-yellow-800'
-                  }`}>
-                    {statusTranslations[agent.status] || agent.status}
-                  </span>
-                  <form action={toggleAgentStatus}>
-                    <input type="hidden" name="agent_id" value={agent.id} />
-                    <input type="hidden" name="current_status" value={agent.status} />
-                    <button type="submit" className={`px-3 py-1 text-sm text-white rounded ${
-                      agent.status === 'active' ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'
-                    }`}>
-                      {agent.status === 'active' ? 'Pausar' : 'Reanudar'}
-                    </button>
-                  </form>
-                  <Link href={`/dashboard/agents/${agent.id}`} className="text-blue-500 hover:underline">
-                    Editar
-                  </Link>
-                </div>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p>Aún no has creado ningún agente.</p>
-        )}
-      </div>
+      {/* The direct data fetching and list rendering is replaced by the client component */}
+      <AgentList />
     </MainLayout>
   )
 }

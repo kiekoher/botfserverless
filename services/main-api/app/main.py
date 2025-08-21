@@ -88,7 +88,11 @@ supabase_adapter = SupabaseAdapter()
 gemini_adapter = GeminiAdapter()
 deepseek_v2_adapter = DeepSeekV2Adapter(api_key=os.getenv("DEEPSEEK_API_KEY"))
 deepseek_chat_adapter = DeepSeekChatAdapter(api_key=os.getenv("DEEPSEEK_API_KEY"))
-openai_embedding_adapter = OpenAIEmbeddingAdapter(api_key=os.getenv("OPENAI_API_KEY"))
+openai_embedding_adapter = OpenAIEmbeddingAdapter(
+    api_key=os.getenv("OPENAI_API_KEY"),
+    supabase_adapter=supabase_adapter,
+    gemini_adapter=gemini_adapter
+)
 print("✅ Adapters initialized.")
 
 print("🧠 Initializing AI Router...")

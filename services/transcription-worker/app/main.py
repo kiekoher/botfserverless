@@ -5,7 +5,8 @@ import asyncio
 import boto3
 from redis.asyncio import Redis
 from redis.exceptions import ResponseError
-from google.cloud import speech
+from faster_whisper import WhisperModel
+from pydub import AudioSegment
 
 # --- Configuration ---
 REDIS_HOST = os.getenv("REDIS_HOST", "redis")
@@ -15,7 +16,7 @@ STREAM_OUT = "events:transcribed_message"
 CONSUMER_GROUP = "group:transcription-workers"
 CONSUMER_NAME = f"consumer:transcription-worker-{os.getpid()}"
 
-# Google Cloud / R2 Configuration
+# R2 Configuration
 R2_ENDPOINT_URL = os.getenv("R2_ENDPOINT_URL")
 R2_BUCKET_NAME = os.getenv("R2_BUCKET_NAME")
 R2_ACCESS_KEY_ID = os.getenv("R2_ACCESS_KEY_ID")
@@ -25,15 +26,20 @@ R2_SECRET_ACCESS_KEY = os.getenv("R2_SECRET_ACCESS_KEY")
 DEAD_LETTER_QUEUE = "events:dead_letter_queue"
 MAX_RETRIES = 3
 
+# Whisper Model Configuration
+MODEL_SIZE = "base"  # Use "base", "small", "medium", "large-v2"
+COMPUTE_TYPE = "int8" # "float16", "int8", etc.
+DEVICE = "cpu"
+
 # --- Initialize Clients ---
 print("🤖 Transcription Worker starting...")
 s3_client = None
-speech_client = None
+whisper_model = None
 
 
 def initialize_external_clients():
     """Initializes non-async clients. Can be run in an executor."""
-    global s3_client, speech_client
+    global s3_client, whisper_model
     try:
         s3_client = boto3.client(
             "s3",
@@ -47,10 +53,11 @@ def initialize_external_clients():
         print(f"❌ Failed to initialize R2 Storage client: {e}")
 
     try:
-        speech_client = speech.SpeechClient()
-        print("✅ Google Speech-to-Text client initialized.")
+        print(f"Loading Whisper model '{MODEL_SIZE}'...")
+        whisper_model = WhisperModel(MODEL_SIZE, device=DEVICE, compute_type=COMPUTE_TYPE)
+        print("✅ Whisper model loaded.")
     except Exception as e:
-        print(f"❌ Failed to initialize Speech-to-Text client: {e}")
+        print(f"❌ Failed to initialize Whisper model: {e}")
 
 
 # --- Helper Functions (Blocking) ---
@@ -58,7 +65,7 @@ def download_audio_from_r2_sync(file_key):
     """Downloads an audio file from R2 and returns its local path."""
     if not s3_client:
         raise Exception("S3 client not initialized.")
-    fd, temp_local_path = tempfile.mkstemp()
+    fd, temp_local_path = tempfile.mkstemp(suffix=".ogg")
     os.close(fd)
     s3_client.download_file(R2_BUCKET_NAME, file_key, temp_local_path)
     print(f"Downloaded '{file_key}' to '{temp_local_path}'")
@@ -66,25 +73,30 @@ def download_audio_from_r2_sync(file_key):
 
 
 def transcribe_audio_sync(file_path):
-    """Transcribes the audio file at the given path."""
-    if not speech_client:
-        raise Exception("Speech client not initialized.")
+    """Transcribes the audio file at the given path using Whisper."""
+    if not whisper_model:
+        raise Exception("Whisper model not initialized.")
+
+    wav_path = None
     try:
-        with open(file_path, "rb") as audio_file:
-            content = audio_file.read()
-        audio = speech.RecognitionAudio(content=content)
-        config = speech.RecognitionConfig(
-            encoding=speech.RecognitionConfig.AudioEncoding.OGG_OPUS,
-            sample_rate_hertz=16000,
-            language_code="es-ES",
-        )
-        response = speech_client.recognize(config=config, audio=audio)
-        if response.results:
-            return response.results[0].alternatives[0].transcript
-        return ""
+        # Convert OGG to WAV, which is preferred by Whisper
+        ogg_audio = AudioSegment.from_file(file_path, format="ogg")
+        wav_path = file_path.replace(".ogg", ".wav")
+        ogg_audio.export(wav_path, format="wav")
+
+        print(f"Starting transcription for {wav_path}...")
+        segments, info = whisper_model.transcribe(wav_path, beam_size=5, language="es")
+
+        print(f"Detected language '{info.language}' with probability {info.language_probability}")
+
+        transcription = "".join(segment.text for segment in segments)
+        return transcription.strip()
     finally:
+        # Clean up both the original and converted files
         if os.path.exists(file_path):
             os.remove(file_path)
+        if wav_path and os.path.exists(wav_path):
+            os.remove(wav_path)
 
 
 # --- Main Async Logic ---
@@ -160,7 +172,7 @@ async def main():
     """Main function to set up clients and run the consumer loop."""
     # Initialize blocking clients in an executor to not block the event loop on startup
     await asyncio.to_thread(initialize_external_clients)
-    if not s3_client or not speech_client:
+    if not s3_client or not whisper_model:
         print("❌ Cannot start worker without external clients. Exiting.")
         return
 
