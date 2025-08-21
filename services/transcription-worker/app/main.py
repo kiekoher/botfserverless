@@ -58,7 +58,8 @@ def download_audio_from_r2_sync(file_key):
     """Downloads an audio file from R2 and returns its local path."""
     if not s3_client:
         raise Exception("S3 client not initialized.")
-    _, temp_local_path = tempfile.mkstemp()
+    fd, temp_local_path = tempfile.mkstemp()
+    os.close(fd)
     s3_client.download_file(R2_BUCKET_NAME, file_key, temp_local_path)
     print(f"Downloaded '{file_key}' to '{temp_local_path}'")
     return temp_local_path

@@ -12,9 +12,10 @@ class GeminiAdapter:
             raise ValueError("GOOGLE_API_KEY must be set in environment.")
         genai.configure(api_key=api_key)
 
-        # TODO: Make model names configurable
-        self.embedding_model = "models/embedding-001"
-        self.generative_model = genai.GenerativeModel("gemini-1.5-flash")
+        embed_model = os.environ.get("GEMINI_EMBED_MODEL", "models/embedding-001")
+        chat_model = os.environ.get("GEMINI_CHAT_MODEL", "gemini-1.5-flash")
+        self.embedding_model = embed_model
+        self.generative_model = genai.GenerativeModel(chat_model)
 
     async def get_embedding(self, text: str):
         """
