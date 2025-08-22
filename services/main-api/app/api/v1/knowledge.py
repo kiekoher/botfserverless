@@ -27,6 +27,8 @@ s3_client = boto3.client(
 )
 
 REDIS_DOCUMENT_STREAM = "events:new_document"
+ALLOWED_CONTENT_TYPES = {"application/pdf", "text/plain"}
+MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 
 @router.get("/knowledge/documents", tags=["Knowledge"])
 async def list_documents_for_user(
@@ -55,6 +57,14 @@ async def upload_knowledge_file(
     """
     supabase_adapter = request.app.state.supabase_adapter
     redis_client = request.app.state.redis
+
+    if file.content_type not in ALLOWED_CONTENT_TYPES:
+        raise HTTPException(status_code=400, detail="Unsupported file type.")
+    file.file.seek(0, os.SEEK_END)
+    file_size = file.file.tell()
+    file.file.seek(0)
+    if file_size > MAX_FILE_SIZE:
+        raise HTTPException(status_code=400, detail="File too large.")
 
     # 1. Get the agent for the user to associate the document
     agent = supabase_adapter.get_agent_for_user(user_id=user_id)
