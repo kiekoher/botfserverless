@@ -218,6 +218,16 @@ async def main_loop(redis_client: Redis, stop_event: asyncio.Event):
 
 
 # --------------------------
+#   API Routers
+# --------------------------
+from app.api.v1 import onboarding, agents, knowledge
+
+# Include the router in the main FastAPI app
+app.include_router(onboarding.router, prefix="/api/v1")
+app.include_router(agents.router, prefix="/api/v1")
+app.include_router(knowledge.router, prefix="/api/v1")
+
+# --------------------------
 # Ciclo de vida de la App manejado por "lifespan" en la creación de FastAPI.
 # --------------------------
 @app.get("/health")
