@@ -1,8 +1,12 @@
 import os
+import logging
 from supabase import create_client, Client
 from dotenv import load_dotenv
 
 load_dotenv()
+
+
+logger = logging.getLogger(__name__)
 
 
 class SupabaseAdapter:
@@ -25,7 +29,7 @@ class SupabaseAdapter:
             response = self.client.table("agents").select("*").eq("user_id", user_id).limit(1).single().execute()
             return response.data
         except Exception as e:
-            print(f"Error fetching agent for user {user_id}: {e}")
+            logger.error("Error fetching agent for user %s: %s", user_id, e)
             return None
 
     def upsert_agent_config(self, user_id: str, name: str, product_description: str, base_prompt: str):
@@ -57,7 +61,7 @@ class SupabaseAdapter:
 
             return response.data[0] if response.data else None
         except Exception as e:
-            print(f"Error upserting agent for user {user_id}: {e}")
+            logger.error("Error upserting agent for user %s: %s", user_id, e)
             return None
 
     def create_document_record(self, user_id: str, agent_id: str, file_name: str, storage_path: str):
@@ -74,7 +78,7 @@ class SupabaseAdapter:
             }).execute()
             return response.data[0] if response.data else None
         except Exception as e:
-            print(f"Error creating document record for user {user_id}: {e}")
+            logger.error("Error creating document record for user %s: %s", user_id, e)
             return None
 
     def get_documents_for_user(self, user_id: str):
@@ -85,7 +89,7 @@ class SupabaseAdapter:
             response = self.client.table("documents").select("*").eq("user_id", user_id).order("created_at", desc=True).execute()
             return response.data
         except Exception as e:
-            print(f"Error fetching documents for user {user_id}: {e}")
+            logger.error("Error fetching documents for user %s: %s", user_id, e)
             return []
 
     def get_conversation_history(self, agent_id: str, user_id: str, limit: int = 10):
@@ -112,7 +116,7 @@ class SupabaseAdapter:
 
             return formatted_history
         except Exception as e:
-            print(f"Error fetching conversation history for agent {agent_id}: {e}")
+            logger.error("Error fetching conversation history for agent %s: %s", agent_id, e)
             return []
 
     def log_conversation(
@@ -140,7 +144,7 @@ class SupabaseAdapter:
             )
             return data
         except Exception as e:
-            print(f"Error logging conversation to Supabase: {e}")
+            logger.error("Error logging conversation to Supabase: %s", e)
             return None
 
     def get_embeddings(self, text: str):
@@ -170,5 +174,14 @@ class SupabaseAdapter:
             ).execute()
             return response.data
         except Exception as e:
-            print(f"Error performing similarity search in Supabase: {e}")
+            logger.error("Error performing similarity search in Supabase: %s", e)
             return []
+
+    def delete_document(self, document_id: str) -> bool:
+        """Deletes a document record by id."""
+        try:
+            self.client.table("documents").delete().eq("id", document_id).execute()
+            return True
+        except Exception as e:
+            logger.error("Error deleting document %s: %s", document_id, e)
+            return False

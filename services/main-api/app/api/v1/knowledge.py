@@ -1,5 +1,6 @@
 import os
 import uuid
+import logging
 
 import boto3
 from botocore.client import Config
@@ -8,6 +9,8 @@ from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Request
 from app.dependencies import get_current_user_id
 
 router = APIRouter()
+
+logger = logging.getLogger(__name__)
 
 # --- R2/S3 Configuration ---
 R2_ENDPOINT_URL = os.environ.get("R2_ENDPOINT_URL")
@@ -65,7 +68,7 @@ async def upload_knowledge_file(
     try:
         s3_client.upload_fileobj(file.file, R2_BUCKET_NAME, storage_path)
     except Exception as e:
-        print(f"Error uploading file to R2: {e}")
+        logger.error("Error uploading file to R2: %s", e)
         raise HTTPException(status_code=500, detail="Failed to upload file to storage.")
 
     # 3. Create document record in Supabase
@@ -76,7 +79,10 @@ async def upload_knowledge_file(
         storage_path=storage_path
     )
     if not document_record:
-        # TODO: Add cleanup logic to delete the file from R2 if this step fails
+        try:
+            s3_client.delete_object(Bucket=R2_BUCKET_NAME, Key=storage_path)
+        except Exception as e:
+            logger.error("Error deleting file from R2 after DB failure: %s", e)
         raise HTTPException(status_code=500, detail="Failed to create document record in database.")
 
     document_id = document_record['id']
@@ -90,8 +96,15 @@ async def upload_knowledge_file(
         }
         await redis_client.xadd(REDIS_DOCUMENT_STREAM, event_payload)
     except Exception as e:
-        # TODO: Add cleanup logic for R2 and Supabase if this fails
-        print(f"Error publishing document event to Redis: {e}")
+        try:
+            s3_client.delete_object(Bucket=R2_BUCKET_NAME, Key=storage_path)
+        except Exception as s3e:
+            logger.error("Error deleting file from R2 after Redis failure: %s", s3e)
+        try:
+            supabase_adapter.delete_document(document_id)
+        except Exception as dbe:
+            logger.error("Error deleting document record after Redis failure: %s", dbe)
+        logger.error("Error publishing document event to Redis: %s", e)
         raise HTTPException(status_code=500, detail="Failed to queue document for processing.")
 
     return {"status": "ok", "message": "File uploaded and queued for processing.", "document_id": document_id}
