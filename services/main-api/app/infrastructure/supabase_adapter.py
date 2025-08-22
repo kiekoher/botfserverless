@@ -1,18 +1,15 @@
 import os
 import logging
 from supabase import create_client, Client
-from dotenv import load_dotenv
-
-load_dotenv()
 
 
 logger = logging.getLogger(__name__)
 
 
 class SupabaseAdapter:
-    def __init__(self):
-        url: str = os.environ.get("SUPABASE_URL")
-        key: str = os.environ.get("SUPABASE_KEY")
+    def __init__(self, url: str | None = None, key: str | None = None):
+        url = url or os.getenv("SUPABASE_URL")
+        key = key or os.getenv("SUPABASE_KEY")
         if not url or not key:
             raise ValueError(
                 "SUPABASE_URL and SUPABASE_KEY must be set in environment."

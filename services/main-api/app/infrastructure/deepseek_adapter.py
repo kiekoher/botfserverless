@@ -1,5 +1,8 @@
 import os
+import logging
 from openai import AsyncOpenAI
+
+logger = logging.getLogger(__name__)
 
 class DeepSeekV2Adapter:
     def __init__(self, api_key: str = None):
@@ -12,21 +15,18 @@ class DeepSeekV2Adapter:
         )
 
     async def generate_response(self, prompt: str, history: list) -> str:
-        print("--- DeepSeek V2 (Analysis) ---")
-        print(f"Prompt: {prompt}")
+        logger.info("DeepSeek V2 (Analysis) prompt: %s", prompt)
         try:
             messages = [{"role": "system", "content": prompt}]
-            # A real implementation would format the history correctly
-            # For now, we are focusing on the prompt
 
             response = await self.client.chat.completions.create(
-                model="deepseek-coder", # As specified in AGENT.md for analysis
+                model="deepseek-coder",  # As specified in AGENT.md for analysis
                 messages=messages,
                 max_tokens=1024,
             )
             return response.choices[0].message.content
         except Exception as e:
-            print(f"❌ An error occurred while calling the DeepSeek API: {e}")
+            logger.error("An error occurred while calling the DeepSeek API: %s", e)
             return "Error: Could not get response from DeepSeek V2."
 
 class DeepSeekChatAdapter:
@@ -40,19 +40,17 @@ class DeepSeekChatAdapter:
         )
 
     async def generate_response(self, prompt: str, history: list) -> str:
-        print("--- DeepSeek Chat (Extraction) ---")
-        print(f"Prompt: {prompt}")
+        logger.info("DeepSeek Chat (Extraction) prompt: %s", prompt)
         try:
             messages = [{"role": "system", "content": prompt}]
-            # A real implementation would format the history correctly
 
             response = await self.client.chat.completions.create(
-                model="deepseek-chat", # As specified in AGENT.md for extraction
+                model="deepseek-chat",  # As specified in AGENT.md for extraction
                 messages=messages,
                 max_tokens=1024,
-                temperature=0, # Lower temperature for more deterministic output (good for JSON)
+                temperature=0,  # Lower temperature for more deterministic output (good for JSON)
             )
             return response.choices[0].message.content
         except Exception as e:
-            print(f"❌ An error occurred while calling the DeepSeek API: {e}")
+            logger.error("An error occurred while calling the DeepSeek API: %s", e)
             return "Error: Could not get response from DeepSeek Chat."

@@ -1,7 +1,7 @@
 annotated-types==0.7.0
 anyio==4.10.0
 cachetools==5.5.2
-certifi==2025.8.3
+certifi==2024.8.30
 charset-normalizer==3.4.3
 click==8.2.1
 coverage==7.10.4
@@ -50,7 +50,7 @@ python-dotenv==1.1.1
 PyYAML==6.0.2
 realtime==2.7.0
 redis[hiredis]==5.0.7
-regex==2025.7.34
+regex==2024.9.13
 requests==2.32.5
 rsa==4.9.1
 ruff==0.12.9
@@ -72,5 +72,5 @@ uvicorn==0.35.0
 uvloop==0.21.0
 watchfiles==1.1.0
 websockets==15.0.1
-boto3
-python-multipart
+boto3==1.35.23
+python-multipart==0.0.9
