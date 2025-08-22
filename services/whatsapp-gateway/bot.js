@@ -48,8 +48,9 @@ const s3Client = new S3Client({
 console.log("☁️  R2 S3 Client Initialized.");
 
 // WhatsApp Client
+const SESSION_PATH = process.env.WHATSAPP_SESSION_PATH || '/session';
 const client = new Client({
-    authStrategy: new LocalAuth(),
+    authStrategy: new LocalAuth({ dataPath: SESSION_PATH }),
     puppeteer: {
         headless: true,
         args: ['--no-sandbox', '--disable-setuid-sandbox'],

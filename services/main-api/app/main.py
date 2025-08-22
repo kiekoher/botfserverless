@@ -2,6 +2,7 @@ import os
 import time
 import asyncio
 import contextlib
+import logging
 from contextlib import asynccontextmanager
 from redis.asyncio import Redis, from_url as redis_from_url
 from redis.exceptions import ResponseError
@@ -17,6 +18,7 @@ from app.infrastructure.supabase_adapter import SupabaseAdapter
 from app.core.ai_router import AIRouter
 from app.infrastructure.deepseek_adapter import DeepSeekV2Adapter, DeepSeekChatAdapter
 from app.infrastructure.openai_adapter import OpenAIEmbeddingAdapter
+from app.api.v1 import onboarding, agents, knowledge
 
 # --------------------------
 #   Configuración Redis
@@ -81,9 +83,12 @@ app = FastAPI(title="Main API", version="1.0.0", lifespan=lifespan)
 # --------------------------
 #   Inicialización de deps
 # --------------------------
-print("🤖 Main API starting...")
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-print("🔌 Initializing adapters...")
+logger.info("🤖 Main API starting...")
+
+logger.info("🔌 Initializing adapters...")
 supabase_adapter = SupabaseAdapter()
 gemini_adapter = GeminiAdapter()
 deepseek_v2_adapter = DeepSeekV2Adapter(api_key=os.getenv("DEEPSEEK_API_KEY"))
@@ -93,16 +98,24 @@ openai_embedding_adapter = OpenAIEmbeddingAdapter(
     supabase_adapter=supabase_adapter,
     gemini_adapter=gemini_adapter
 )
-print("✅ Adapters initialized.")
+logger.info("✅ Adapters initialized.")
 
-print("🧠 Initializing AI Router...")
+logger.info("🧠 Initializing AI Router...")
 ai_router = AIRouter(
     gemini_adapter=gemini_adapter,
     deepseek_v2_adapter=deepseek_v2_adapter,
     deepseek_chat_adapter=deepseek_chat_adapter,
     openai_embedding_adapter=openai_embedding_adapter,
 )
-print("✅ AI Router initialized.")
+logger.info("✅ AI Router initialized.")
+
+# Store adapters in application state for reuse across endpoints
+app.state.supabase_adapter = supabase_adapter
+app.state.gemini_adapter = gemini_adapter
+app.state.deepseek_v2_adapter = deepseek_v2_adapter
+app.state.deepseek_chat_adapter = deepseek_chat_adapter
+app.state.openai_embedding_adapter = openai_embedding_adapter
+app.state.ai_router = ai_router
 
 process_chat_message_use_case = ProcessChatMessage(
     router=ai_router, db_adapter=supabase_adapter
@@ -220,8 +233,6 @@ async def main_loop(redis_client: Redis, stop_event: asyncio.Event):
 # --------------------------
 #   API Routers
 # --------------------------
-from app.api.v1 import onboarding, agents, knowledge
-
 # Include the router in the main FastAPI app
 app.include_router(onboarding.router, prefix="/api/v1")
 app.include_router(agents.router, prefix="/api/v1")

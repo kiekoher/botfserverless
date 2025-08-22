@@ -43,7 +43,7 @@ class OpenAIEmbeddingAdapter:
             print(f"❌ An error occurred while calling the OpenAI API: {e}")
             return []
 
-    async def generate_response_from_rag(self, query: str) -> str:
+    async def generate_response_from_rag(self, query: str, user_id: str) -> str:
         """
         Generates a response using a full RAG (Retrieval-Augmented Generation) pipeline.
         """
@@ -60,12 +60,14 @@ class OpenAIEmbeddingAdapter:
         # 2. Use the embedding to search for similar documents in Supabase
         print("Step 2: Searching for relevant documents in Supabase...")
         try:
-            # The similarity_search function is already in supabase_adapter
-            relevant_docs = await self.supabase_adapter.similarity_search(query_embedding)
+            relevant_docs = self.supabase_adapter.find_relevant_chunks(
+                user_id, query_embedding
+            )
             if not relevant_docs:
                 print("No relevant documents found in the knowledge base.")
-                # Fallback to a direct answer if no docs are found
-                return await self.gemini_adapter.generate_response(prompt=query, history=[])
+                return await self.gemini_adapter.generate_response(
+                    prompt=query, history=[]
+                )
         except Exception as e:
             print(f"❌ Error during similarity search: {e}")
             return "Sorry, I encountered an error while searching our knowledge base."
@@ -75,7 +77,7 @@ class OpenAIEmbeddingAdapter:
         # 3. Construct the prompt with context and pass to Gemini
         print("Step 3: Generating final answer with LLM...")
 
-        context_str = "\n".join([doc['content'] for doc in relevant_docs[0]])
+        context_str = "\n".join([doc['content'] for doc in relevant_docs])
 
         final_prompt = f"""
         You are a helpful AI assistant. Answer the user's query based on the following context.

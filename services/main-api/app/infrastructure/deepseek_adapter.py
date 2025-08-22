@@ -12,7 +12,7 @@ class DeepSeekV2Adapter:
         )
 
     async def generate_response(self, prompt: str, history: list) -> str:
-        print(f"--- DeepSeek V2 (Analysis) ---")
+        print("--- DeepSeek V2 (Analysis) ---")
         print(f"Prompt: {prompt}")
         try:
             messages = [{"role": "system", "content": prompt}]
@@ -40,7 +40,7 @@ class DeepSeekChatAdapter:
         )
 
     async def generate_response(self, prompt: str, history: list) -> str:
-        print(f"--- DeepSeek Chat (Extraction) ---")
+        print("--- DeepSeek Chat (Extraction) ---")
         print(f"Prompt: {prompt}")
         try:
             messages = [{"role": "system", "content": prompt}]

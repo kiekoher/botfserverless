@@ -7,7 +7,8 @@ const supabase = createBrowserClient(
 )
 
 // Define the base URL for our main API
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost/api';
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL || 'http://localhost/api/v1';
 
 // --- Helper function to get the auth token ---
 async function getAuthToken() {
@@ -65,4 +66,57 @@ export const createAgent = async (payload: CreateAgentPayload) => {
   });
 };
 
-// --- Add other API functions for knowledge, config, etc. as they are built ---
+// --- Agent configuration ---
+
+export interface AgentConfig {
+  name: string;
+  product_description: string;
+  base_prompt: string;
+}
+
+export const getAgentConfig = async (): Promise<AgentConfig> => {
+  return fetchFromApi('/agents/me');
+};
+
+export const saveAgentConfig = async (
+  config: AgentConfig,
+): Promise<AgentConfig> => {
+  return fetchFromApi('/agents/me', {
+    method: 'POST',
+    body: JSON.stringify(config),
+  });
+};
+
+// --- Knowledge documents ---
+
+export interface Document {
+  id: string;
+  file_name: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  created_at: string;
+}
+
+export const getDocuments = async (): Promise<Document[]> => {
+  return fetchFromApi('/knowledge/documents');
+};
+
+export const uploadDocument = async (file: File) => {
+  const token = await getAuthToken();
+  const formData = new FormData();
+  formData.append('file', file);
+  const response = await fetch(`${API_BASE_URL}/knowledge/upload`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const errorData = await response
+      .json()
+      .catch(() => ({ message: response.statusText }));
+    throw new Error(errorData.message || 'An unknown error occurred');
+  }
+
+  return response.json();
+};
+

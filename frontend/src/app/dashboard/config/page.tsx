@@ -2,25 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { authenticatedFetch } from '@/lib/api';
-
-interface AgentConfig {
-  name: string;
-  product_description: string;
-  base_prompt: string;
-}
-
-// API functions using the authenticated fetch wrapper
-const getAgentConfig = async (): Promise<AgentConfig> => {
-  return authenticatedFetch('/api/v1/agents/me');
-};
-
-const saveAgentConfig = async (config: AgentConfig): Promise<AgentConfig> => {
-  return authenticatedFetch('/api/v1/agents/me', {
-    method: 'POST',
-    body: JSON.stringify(config),
-  });
-};
+import { getAgentConfig, saveAgentConfig, AgentConfig } from '@/services/api';
 
 export default function ConfigPage() {
   const queryClient = useQueryClient();
