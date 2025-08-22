@@ -2,26 +2,8 @@
 
 import { useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { authenticatedFetch, authenticatedFormDataFetch } from '@/lib/api';
 import { useDropzone } from 'react-dropzone';
-
-interface Document {
-  id: string;
-  file_name: string;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
-  created_at: string;
-}
-
-// API Functions
-const getDocuments = async (): Promise<Document[]> => {
-  return authenticatedFetch('/api/v1/knowledge/documents');
-};
-
-const uploadDocument = async (file: File): Promise<any> => {
-  const formData = new FormData();
-  formData.append('file', file);
-  return authenticatedFormDataFetch('/api/v1/knowledge/upload', formData);
-};
+import { getDocuments, uploadDocument, Document } from '@/services/api';
 
 // Status Badge Component
 const StatusBadge = ({ status }) => {

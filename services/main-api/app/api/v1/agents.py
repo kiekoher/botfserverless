@@ -1,23 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from app.infrastructure.supabase_adapter import SupabaseAdapter
-from app.dependencies import get_process_chat_message_use_case # Re-using for adapter access, can be cleaner
+from app.dependencies import get_current_user_id
 
 router = APIRouter()
-
-# A real implementation would have a robust dependency to get user from JWT
-# For now, we'll simulate it, but this is a CRITICAL security gap.
-async def get_current_user_id_mock(request: Request) -> str:
-    """
-    Mock dependency to simulate getting a user ID.
-    In a real app, this would come from a decoded JWT token.
-    We are using a header for simulation purposes.
-    """
-    user_id = request.headers.get("X-User-ID")
-    if not user_id:
-        # In a real app, you'd check for an Authorization header and raise 401
-        raise HTTPException(status_code=401, detail="Missing user identification for mock auth")
-    return user_id
 
 class AgentConfig(BaseModel):
     name: str
@@ -28,7 +14,7 @@ class AgentConfig(BaseModel):
 async def upsert_agent_for_current_user(
     config: AgentConfig,
     request: Request,
-    user_id: str = Depends(get_current_user_id_mock)
+    user_id: str = Depends(get_current_user_id)
 ):
     """
     Creates or updates the agent configuration for the currently authenticated user.
@@ -57,7 +43,7 @@ async def upsert_agent_for_current_user(
 @router.get("/agents/me", tags=["Agents"])
 async def get_agent_for_current_user(
     request: Request,
-    user_id: str = Depends(get_current_user_id_mock)
+    user_id: str = Depends(get_current_user_id)
 ):
     """
     Retrieves the agent configuration for the currently authenticated user.

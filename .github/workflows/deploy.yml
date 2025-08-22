@@ -25,10 +25,10 @@ jobs:
       - name: Lint and Test Backend
         run: |
           docker-compose -f docker-compose.prod.yml exec -T main-api ruff format .
-          docker-compose -f docker-compose.prod.yml exec -T main-api ruff check . --fix
+          docker-compose -f docker-compose.prod.yml exec -T main-api ruff check .
           docker-compose -f docker-compose.prod.yml exec -T main-api pytest
           docker-compose -f docker-compose.prod.yml exec -T transcription-worker ruff format .
-          docker-compose -f docker-compose.prod.yml exec -T transcription-worker ruff check . --fix
+          docker-compose -f docker-compose.prod.yml exec -T transcription-worker ruff check .
           docker-compose -f docker-compose.prod.yml exec -T transcription-worker pytest
 
       - name: Lint and Test Frontend

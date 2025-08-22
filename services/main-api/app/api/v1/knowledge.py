@@ -1,10 +1,11 @@
 import os
+import uuid
+
 import boto3
 from botocore.client import Config
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Request
-from app.api.v1.agents import get_current_user_id_mock # Reusing the mock auth
-import uuid
-from typing import List
+
+from app.dependencies import get_current_user_id
 
 router = APIRouter()
 
@@ -27,7 +28,7 @@ REDIS_DOCUMENT_STREAM = "events:new_document"
 @router.get("/knowledge/documents", tags=["Knowledge"])
 async def list_documents_for_user(
     request: Request,
-    user_id: str = Depends(get_current_user_id_mock)
+    user_id: str = Depends(get_current_user_id)
 ):
     """
     Lists all documents uploaded by the current user.
@@ -43,7 +44,7 @@ async def list_documents_for_user(
 async def upload_knowledge_file(
     request: Request,
     file: UploadFile = File(...),
-    user_id: str = Depends(get_current_user_id_mock)
+    user_id: str = Depends(get_current_user_id)
 ):
     """
     Uploads a knowledge document, stores it in R2, creates a record in Supabase,

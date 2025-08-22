@@ -2,6 +2,7 @@ import os
 import time
 import tempfile
 import asyncio
+import logging
 import boto3
 from redis.asyncio import Redis
 from redis.exceptions import ResponseError
@@ -32,7 +33,10 @@ COMPUTE_TYPE = "int8" # "float16", "int8", etc.
 DEVICE = "cpu"
 
 # --- Initialize Clients ---
-print("🤖 Transcription Worker starting...")
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+logger.info("🤖 Transcription Worker starting...")
 s3_client = None
 whisper_model = None
 
@@ -48,16 +52,16 @@ def initialize_external_clients():
             aws_secret_access_key=R2_SECRET_ACCESS_KEY,
             region_name="auto",
         )
-        print("✅ R2 S3 client initialized.")
+        logger.info("✅ R2 S3 client initialized.")
     except Exception as e:
-        print(f"❌ Failed to initialize R2 Storage client: {e}")
+        logger.error("❌ Failed to initialize R2 Storage client: %s", e)
 
     try:
-        print(f"Loading Whisper model '{MODEL_SIZE}'...")
+        logger.info("Loading Whisper model '%s'...", MODEL_SIZE)
         whisper_model = WhisperModel(MODEL_SIZE, device=DEVICE, compute_type=COMPUTE_TYPE)
-        print("✅ Whisper model loaded.")
+        logger.info("✅ Whisper model loaded.")
     except Exception as e:
-        print(f"❌ Failed to initialize Whisper model: {e}")
+        logger.error("❌ Failed to initialize Whisper model: %s", e)
 
 
 # --- Helper Functions (Blocking) ---
@@ -68,7 +72,7 @@ def download_audio_from_r2_sync(file_key):
     fd, temp_local_path = tempfile.mkstemp(suffix=".ogg")
     os.close(fd)
     s3_client.download_file(R2_BUCKET_NAME, file_key, temp_local_path)
-    print(f"Downloaded '{file_key}' to '{temp_local_path}'")
+    logger.info("Downloaded '%s' to '%s'", file_key, temp_local_path)
     return temp_local_path
 
 
@@ -84,10 +88,10 @@ def transcribe_audio_sync(file_path):
         wav_path = file_path.replace(".ogg", ".wav")
         ogg_audio.export(wav_path, format="wav")
 
-        print(f"Starting transcription for {wav_path}...")
+        logger.info("Starting transcription for %s...", wav_path)
         segments, info = whisper_model.transcribe(wav_path, beam_size=5, language="es")
 
-        print(f"Detected language '{info.language}' with probability {info.language_probability}")
+        logger.info("Detected language '%s' with probability %s", info.language, info.language_probability)
 
         transcription = "".join(segment.text for segment in segments)
         return transcription.strip()

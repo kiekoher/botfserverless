@@ -135,7 +135,7 @@ const OnboardingPage = () => {
         return (
           <StepContent step={steps[1]}>
             <p className="text-gray-700 mb-4 text-center">
-              Navigate to the configuration page to set up your agent's personality.
+              Navigate to the configuration page to set up your agent&apos;s personality.
             </p>
             <Link href="/dashboard/config" className="px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
                 Go to Configuration
