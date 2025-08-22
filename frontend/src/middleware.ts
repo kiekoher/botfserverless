@@ -55,7 +55,13 @@ export async function middleware(request: NextRequest) {
   )
 
   // IMPORTANT: This will refresh the session cookie
-  await supabase.auth.getSession()
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+
+  if (!session) {
+    return NextResponse.redirect(new URL('/login', request.url))
+  }
 
   return response
 }

@@ -1,8 +1,14 @@
 import os
+import asyncio
+import logging
+
 import google.generativeai as genai
 from dotenv import load_dotenv
 
 load_dotenv()
+
+
+logger = logging.getLogger(__name__)
 
 
 class GeminiAdapter:
@@ -22,10 +28,12 @@ class GeminiAdapter:
         Generates embeddings for a given text.
         """
         try:
-            result = genai.embed_content(model=self.embedding_model, content=text)
+            result = await asyncio.to_thread(
+                genai.embed_content, model=self.embedding_model, content=text
+            )
             return result["embedding"]
         except Exception as e:
-            print(f"Error generating embedding with Gemini: {e}")
+            logger.error("Error generating embedding with Gemini: %s", e)
             return None
 
     async def classify_and_extract(self, query: str) -> dict:
@@ -70,8 +78,22 @@ class GeminiAdapter:
         Respuesta:
         """
         try:
-            response = self.generative_model.generate_content(prompt)
+            response = await asyncio.to_thread(
+                self.generative_model.generate_content, prompt
+            )
             return response.text
         except Exception as e:
-            print(f"Error generating RAG response with Gemini: {e}")
+            logger.error("Error generating RAG response with Gemini: %s", e)
+            return "Lo siento, no pude procesar tu solicitud en este momento."
+
+    async def generate_response(self, prompt: str, history: list) -> str:
+        """Generate a conversational response based on a prompt and history."""
+        try:
+            # Gemini SDK is synchronous; run in thread to avoid blocking.
+            response = await asyncio.to_thread(
+                self.generative_model.generate_content, prompt
+            )
+            return response.text
+        except Exception as e:
+            logger.error("Error generating response with Gemini: %s", e)
             return "Lo siento, no pude procesar tu solicitud en este momento."
