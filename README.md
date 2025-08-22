@@ -9,7 +9,7 @@ El sistema sigue una arquitectura de microservicios y está completamente orques
 -   **`frontend` (Next.js):** El panel de control orientado al usuario para gestionar agentes, ver conversaciones y configurar cuentas. Se sirve como un contenedor Docker.
 -   **`main-api` (Python/FastAPI):** El núcleo de la aplicación. Maneja toda la lógica de negocio, gestiona el enrutamiento de modelos de IA y sirve la API REST principal. Se comunica con otros servicios de forma asíncrona.
 -   **`whatsapp-gateway` (Node.js):** El punto de entrada para todos los mensajes de usuario desde WhatsApp. Actúa como un puente, recibiendo mensajes, subiendo archivos multimedia y publicando eventos en un stream de Redis.
--   **`transcription-worker` (Python):** Un trabajador dedicado que escucha los mensajes de audio en el stream de Redis, los transcribe usando Google Speech-to-Text y publica el texto de vuelta para que `main-api` lo procese.
+-   **`transcription-worker` (Python):** Un trabajador dedicado que escucha los mensajes de audio en el stream de Redis, los transcribe usando un modelo local `faster-whisper` para garantizar la privacidad y un costo fijo, y publica el texto de vuelta para que `main-api` lo procese.
 -   **`nginx` (Nginx):** Un proxy inverso que enruta el tráfico entrante al servicio apropiado (`frontend` o `main-api`) y maneja la terminación SSL con certificados auto-renovables de Let's Encrypt.
 -   **`redis` (Redis):** Utilizado como un message broker de alto rendimiento (a través de Redis Streams) para facilitar la comunicación asíncrona entre los microservicios.
 -   **`loki` & `promtail`:** Una pila de logging completa para agregar y ver los logs de todos los contenedores en ejecución.
