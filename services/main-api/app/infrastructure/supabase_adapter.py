@@ -32,6 +32,20 @@ class SupabaseAdapter:
             logger.error("Error fetching agent for user %s: %s", user_id, e)
             return None
 
+    def list_agents_for_user(self, user_id: str):
+        """Return all agents belonging to a user."""
+        try:
+            response = (
+                self.client.table("agents")
+                .select("*")
+                .eq("user_id", user_id)
+                .execute()
+            )
+            return response.data
+        except Exception as e:
+            logger.error("Error listing agents for user %s: %s", user_id, e)
+            return []
+
     def upsert_agent_config(self, user_id: str, name: str, product_description: str, base_prompt: str):
         """
         Creates or updates an agent's configuration.

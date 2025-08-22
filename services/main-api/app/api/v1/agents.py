@@ -10,6 +10,22 @@ class AgentConfig(BaseModel):
     product_description: str
     base_prompt: str
 
+
+@router.get("/agents", tags=["Agents"])
+async def list_agents_for_current_user(
+    request: Request,
+    user_id: str = Depends(get_current_user_id),
+):
+    """Return all agents for the authenticated user."""
+    supabase_adapter = request.app.state.supabase_adapter
+    if not supabase_adapter:
+        supabase_adapter = SupabaseAdapter()
+
+    try:
+        return supabase_adapter.list_agents_for_user(user_id=user_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.post("/agents/me", tags=["Agents"], status_code=201)
 async def upsert_agent_for_current_user(
     config: AgentConfig,
