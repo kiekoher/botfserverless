@@ -1,12 +1,15 @@
 import os
-from deepseek import AsyncDeepSeek
+from openai import AsyncOpenAI
 
 class DeepSeekV2Adapter:
     def __init__(self, api_key: str = None):
         self.api_key = api_key or os.getenv("DEEPSEEK_API_KEY")
         if not self.api_key:
             raise ValueError("DEEPSEEK_API_KEY environment variable not set.")
-        self.client = AsyncDeepSeek(api_key=self.api_key)
+        self.client = AsyncOpenAI(
+            api_key=self.api_key,
+            base_url="https://api.deepseek.com/v1"
+        )
 
     async def generate_response(self, prompt: str, history: list) -> str:
         print(f"--- DeepSeek V2 (Analysis) ---")
@@ -31,7 +34,10 @@ class DeepSeekChatAdapter:
         self.api_key = api_key or os.getenv("DEEPSEEK_API_KEY")
         if not self.api_key:
             raise ValueError("DEEPSEEK_API_KEY environment variable not set.")
-        self.client = AsyncDeepSeek(api_key=self.api_key)
+        self.client = AsyncOpenAI(
+            api_key=self.api_key,
+            base_url="https://api.deepseek.com/v1"
+        )
 
     async def generate_response(self, prompt: str, history: list) -> str:
         print(f"--- DeepSeek Chat (Extraction) ---")

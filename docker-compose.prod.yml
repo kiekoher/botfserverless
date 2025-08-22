@@ -104,14 +104,11 @@ services:
     container_name: eva_transcription_worker_prod
     restart: unless-stopped
     environment:
-      - GOOGLE_APPLICATION_CREDENTIALS=/app/gcloud-credentials.json
       - R2_ENDPOINT_URL=${R2_ENDPOINT_URL}
       - R2_BUCKET_NAME=${R2_BUCKET_NAME}
       - R2_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID}
       - R2_SECRET_ACCESS_KEY=${R2_SECRET_ACCESS_KEY}
       - REDIS_HOST=${REDIS_HOST}
-    volumes:
-      - ./gcloud-credentials.json:/app/gcloud-credentials.json:ro
     depends_on:
       - redis
     logging:
