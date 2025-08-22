@@ -33,6 +33,7 @@ class ProcessChatMessage:
 
         # 3. Route the query to the appropriate AI model
         bot_response = await self.router.route_query(
+            user_id=user_id,
             query=user_query,
             history=history,
             task='chat',  # This use case is for standard chat interactions

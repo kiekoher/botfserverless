@@ -28,6 +28,66 @@ class SupabaseAdapter:
             print(f"Error fetching agent for user {user_id}: {e}")
             return None
 
+    def upsert_agent_config(self, user_id: str, name: str, product_description: str, base_prompt: str):
+        """
+        Creates or updates an agent's configuration.
+        An upsert is used to ensure a user has only one agent entry.
+        """
+        try:
+            # The 'on_conflict' parameter is not directly supported in supabase-py v1.
+            # We must use an RPC call for this or do a select-then-insert/update.
+            # For simplicity, we'll use upsert which is available in v2 or do it manually.
+            # Let's check for an existing agent first.
+            existing_agent = self.client.table("agents").select("id").eq("user_id", user_id).limit(1).single().execute()
+
+            agent_data = {
+                "user_id": user_id,
+                "name": name,
+                "product_description": product_description,
+                "base_prompt": base_prompt,
+                "status": "active"
+            }
+
+            if existing_agent.data:
+                # Update existing agent
+                response = self.client.table("agents").update(agent_data).eq("user_id", user_id).execute()
+            else:
+                # Insert new agent
+                response = self.client.table("agents").insert(agent_data).execute()
+
+            return response.data[0] if response.data else None
+        except Exception as e:
+            print(f"Error upserting agent for user {user_id}: {e}")
+            return None
+
+    def create_document_record(self, user_id: str, agent_id: str, file_name: str, storage_path: str):
+        """
+        Creates a new record in the 'documents' table.
+        """
+        try:
+            response = self.client.table("documents").insert({
+                "user_id": user_id,
+                "agent_id": agent_id,
+                "file_name": file_name,
+                "storage_path": storage_path,
+                "status": "pending"
+            }).execute()
+            return response.data[0] if response.data else None
+        except Exception as e:
+            print(f"Error creating document record for user {user_id}: {e}")
+            return None
+
+    def get_documents_for_user(self, user_id: str):
+        """
+        Retrieves all document records for a given user.
+        """
+        try:
+            response = self.client.table("documents").select("*").eq("user_id", user_id).order("created_at", desc=True).execute()
+            return response.data
+        except Exception as e:
+            print(f"Error fetching documents for user {user_id}: {e}")
+            return []
+
     def get_conversation_history(self, agent_id: str, user_id: str, limit: int = 10):
         """
         Retrieves the last N conversation turns for a given agent and user.
@@ -92,22 +152,23 @@ class SupabaseAdapter:
         # or another embedding service.
         pass
 
-    def similarity_search(
-        self, query_embedding, match_threshold: float = 0.78, match_count: int = 5
+    def find_relevant_chunks(
+        self, user_id: str, query_embedding: list[float], match_threshold: float = 0.5, match_count: int = 5
     ):
         """
-        Performs a similarity search on the 'documents' table.
+        Performs a similarity search on the 'document_chunks' table for a specific user.
         """
         try:
-            data, count = self.client.rpc(
-                "match_documents",
+            response = self.client.rpc(
+                "match_document_chunks",
                 {
+                    "p_user_id": user_id,
                     "query_embedding": query_embedding,
                     "match_threshold": match_threshold,
                     "match_count": match_count,
                 },
             ).execute()
-            return data
+            return response.data
         except Exception as e:
             print(f"Error performing similarity search in Supabase: {e}")
-            return None
+            return []

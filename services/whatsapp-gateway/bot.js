@@ -57,13 +57,28 @@ const client = new Client({
 });
 
 // --- Event Handlers ---
-client.on('qr', qr => {
+client.on('qr', async (qr) => {
     console.log('📱 Scan QR code to connect:');
     qrcode.generate(qr, { small: true });
+    // Store the QR code in Redis for the main API to fetch
+    try {
+        await redisClient.set('whatsapp:qr_code', qr, { EX: 60 }); // Expires in 60 seconds
+        console.log('큐알코드를 레디스에 성공적으로 저장했습니다');
+        await redisClient.set('whatsapp:status', 'disconnected');
+    } catch (err) {
+        console.error('❌ Redis QR code SET error:', err);
+    }
 });
 
 client.on('ready', async () => {
     console.log('✅ WhatsApp Adapter is ready and connected.');
+    // Update status in Redis
+    try {
+        await redisClient.set('whatsapp:status', 'connected');
+        await redisClient.del('whatsapp:qr_code'); // QR code is no longer needed
+    } catch (err) {
+        console.error('❌ Redis status SET error:', err);
+    }
 
     // Ensure Redis is connected before starting consumer
     if (!redisClient.isOpen) {

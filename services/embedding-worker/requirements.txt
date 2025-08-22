@@ -1,0 +1,8 @@
+redis[hiredis]==5.0.7
+supabase==2.18.1
+boto3
+openai
+tiktoken
+python-dotenv
+# For reading PDFs
+PyPDF2
