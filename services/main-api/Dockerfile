@@ -22,6 +22,9 @@ COPY --from=builder /opt/venv /opt/venv
 # Copia el código de la aplicación a la carpeta /code/app
 COPY ./app /code/app
 
+# Copia el código de las pruebas
+COPY ./tests /code/tests
+
 # Activa el entorno virtual
 ENV PATH="/opt/venv/bin:$PATH"
 

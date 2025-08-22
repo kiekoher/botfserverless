@@ -35,6 +35,7 @@ class ProcessChatMessage:
         bot_response = await self.router.route_query(
             query=user_query,
             history=history,
+            task='chat',  # This use case is for standard chat interactions
             agent_prompt=agent.get('base_prompt'),
             agent_guardrails=agent.get('guardrails')
         )

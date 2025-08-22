@@ -9,3 +9,8 @@ charset-normalizer
 idna
 requests
 urllib3
+
+# Testing
+pytest
+pytest-mock
+pytest-asyncio

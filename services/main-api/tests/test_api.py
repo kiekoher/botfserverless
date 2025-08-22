@@ -1,35 +1,70 @@
 import pytest
 from fastapi.testclient import TestClient
+from unittest.mock import AsyncMock
+
 from app.main import app
 
-# --- Test Setup ---
-# The TestClient allows us to make requests to the FastAPI app in tests.
-# It handles the app's lifecycle (startup and shutdown events).
-client = TestClient(app)
+# --- Mocks and Fixtures ---
+
+@pytest.fixture
+def mock_redis_ping(mocker):
+    """Mocks the redis ping to always succeed."""
+    # We patch 'redis_from_url' in the 'app.main' module where it is used.
+    mock_redis = AsyncMock()
+    mock_redis.ping.return_value = True
+    mocker.patch("app.main.redis_from_url", return_value=mock_redis)
+    return mock_redis
+
+@pytest.fixture
+def client(mock_redis_ping):
+    """
+    Provides a TestClient instance for the tests, ensuring that the
+    Redis dependency is mocked before the app starts.
+    """
+    # The TestClient will automatically handle the app's lifespan,
+    # and because we've patched redis_from_url, it will use our mock.
+    with TestClient(app) as test_client:
+        yield test_client
 
 
 # --- Test Cases ---
-def test_health_check():
-    """
-    Tests the /health endpoint to ensure the API is running and can connect to Redis.
 
-    This test relies on the Redis service being available, which is handled by
-    the docker-compose setup in the CI/CD pipeline.
+def test_health_check_redis_ok(client):
     """
+    Tests the /health endpoint simulating a successful Redis connection.
+    """
+    # The client fixture ensures the app is started with a mocked Redis.
     response = client.get("/health")
 
     # Assert that the request was successful
     assert response.status_code == 200
 
-    # Assert that the response body is as expected
+    # Assert that the response body shows a successful Redis connection
     response_json = response.json()
     assert response_json["status"] == "ok"
-    assert "redis" in response_json
-
-    # In a test environment with a running Redis, this should be True.
-    # If Redis is not available, the endpoint itself is designed to return False,
-    # but the overall status is still "ok".
     assert response_json["redis"] is True
+
+
+def test_health_check_redis_fail(mocker, client):
+    """
+    Tests the /health endpoint simulating a failed Redis connection.
+    """
+    # We can further modify the mock for this specific test
+    mock_redis = AsyncMock()
+    mock_redis.ping.side_effect = ConnectionError("Failed to connect")
+    mocker.patch("app.main.redis_from_url", return_value=mock_redis)
+
+    # We need a new client to pick up the new mock
+    with TestClient(app) as new_client:
+        response = new_client.get("/health")
+
+        # Assert that the request was successful (the endpoint should handle the error)
+        assert response.status_code == 200
+
+        # Assert that the response body shows a failed Redis connection
+        response_json = response.json()
+        assert response_json["status"] == "ok"
+        assert response_json["redis"] is False
 
 # To add more tests, create new functions starting with `test_`.
 # For example:
