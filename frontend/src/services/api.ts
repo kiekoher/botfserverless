@@ -120,3 +120,32 @@ export const uploadDocument = async (file: File) => {
   return response.json();
 };
 
+// --- Onboarding ---
+
+export interface OnboardingStatus {
+  status: 'disconnected' | 'connected' | 'loading';
+}
+
+export interface QrCodeResponse {
+  qr_code: string;
+}
+
+export const getOnboardingStatus = async (): Promise<OnboardingStatus> => {
+    // This fetch call is different from the generic one because it doesn't require authentication
+    const response = await fetch('/api/v1/onboarding/status');
+    if (!response.ok) {
+        throw new Error('Failed to fetch onboarding status');
+    }
+    return response.json();
+};
+
+export const getWhatsappQrCode = async (): Promise<QrCodeResponse | null> => {
+    const response = await fetch('/api/v1/onboarding/whatsapp-qr');
+    if (response.status === 204) {
+        return null; // No QR code available yet
+    }
+    if (!response.ok) {
+        throw new Error('Failed to fetch QR code');
+    }
+    return response.json();
+}

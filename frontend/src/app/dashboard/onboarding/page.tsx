@@ -4,35 +4,12 @@ import React, { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import QRCode from 'qrcode.react';
 import Link from 'next/link';
-
-// --- Types ---
-interface OnboardingStatus {
-  status: 'disconnected' | 'connected' | 'loading';
-}
-
-interface QrCodeResponse {
-  qr_code: string;
-}
-
-// --- API Fetching Functions ---
-const fetchQrCode = async (): Promise<QrCodeResponse | null> => {
-  const res = await fetch('/api/v1/onboarding/whatsapp-qr');
-  if (res.status === 204) {
-    return null; // No QR code available yet
-  }
-  if (!res.ok) {
-    throw new Error('Failed to fetch QR code');
-  }
-  return res.json();
-};
-
-const fetchOnboardingStatus = async (): Promise<OnboardingStatus> => {
-  const res = await fetch('/api/v1/onboarding/status');
-  if (!res.ok) {
-    throw new Error('Failed to fetch onboarding status');
-  }
-  return res.json();
-};
+import {
+  getOnboardingStatus,
+  getWhatsappQrCode,
+  OnboardingStatus,
+  QrCodeResponse,
+} from '../../../../services/api';
 
 // --- Child Components ---
 const StepButton = ({ step, currentStep, setStep, disabled }) => (
@@ -66,18 +43,18 @@ const OnboardingPage = () => {
   const [currentStep, setCurrentStep] = useState(1);
 
   // Query for WhatsApp connection status
-  const { data: statusData, error: statusError } = useQuery<OnboardingStatus>({
+  const { data: statusData, error: statusError } = useQuery({
     queryKey: ['onboardingStatus'],
-    queryFn: fetchOnboardingStatus,
+    queryFn: getOnboardingStatus,
     refetchInterval: data => (data?.status === 'connected' ? false : 2000), // Poll every 2s until connected
   });
 
   const isConnected = statusData?.status === 'connected';
 
   // Query for QR Code, only enabled if not connected
-  const { data: qrData, isLoading: isQrLoading } = useQuery<QrCodeResponse | null>({
+  const { data: qrData, isLoading: isQrLoading } = useQuery({
     queryKey: ['qrCode'],
-    queryFn: fetchQrCode,
+    queryFn: getWhatsappQrCode,
     refetchInterval: data => (data?.qr_code || isConnected ? false : 3000), // Poll every 3s if no QR code and not connected
     enabled: !isConnected,
   });
