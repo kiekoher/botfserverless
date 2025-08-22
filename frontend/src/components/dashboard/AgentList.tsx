@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from '@tanstack/react-query';
-import { getAgents } from '@/services/api';
+import { getAgents, Agent } from '@/services/api';
 import Link from 'next/link';
 
 const statusTranslations: { [key: string]: string } = {
@@ -27,7 +27,7 @@ export default function AgentList() {
         <div className="bg-white p-6 rounded-lg shadow-md">
             {agents && agents.length > 0 ? (
                 <ul>
-                    {agents.map((agent: any) => (
+                    {agents.map((agent: Agent) => (
                         <li key={agent.id} className="flex justify-between items-center py-3 border-b last:border-b-0">
                             <span className="font-medium">{agent.name}</span>
                             <div className="flex items-center space-x-4">

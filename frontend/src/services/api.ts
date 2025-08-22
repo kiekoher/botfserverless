@@ -46,7 +46,13 @@ async function fetchFromApi(path: string, options: RequestInit = {}) {
 
 // --- Agent-related API functions ---
 
-export const getAgents = async () => {
+export interface Agent {
+  id: string;
+  name: string;
+  status: string;
+}
+
+export const getAgents = async (): Promise<Agent[]> => {
   return fetchFromApi('/agents');
 };
 
