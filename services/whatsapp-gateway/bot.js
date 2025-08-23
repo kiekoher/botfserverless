@@ -13,7 +13,11 @@ const STREAM_IN = 'events:new_message';
 const STREAM_OUT = 'events:message_out';
 const CONSUMER_GROUP = 'group:whatsapp-gateway';
 const CONSUMER_NAME = `consumer:whatsapp-gateway-${os.hostname()}`;
-const USER_ID = process.env.WHATSAPP_USER_ID || 'default';
+const USER_ID = process.env.WHATSAPP_USER_ID;
+if (!USER_ID) {
+    console.error('❌ WHATSAPP_USER_ID environment variable is required.');
+    process.exit(1);
+}
 
 // R2 Configuration
 const R2_ENDPOINT_URL = process.env.R2_ENDPOINT_URL; // e.g., https://<accountid>.r2.cloudflarestorage.com
