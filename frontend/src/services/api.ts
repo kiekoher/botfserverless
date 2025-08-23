@@ -149,3 +149,7 @@ export const getOnboardingStatus = async (): Promise<OnboardingStatus> => {
 export const getWhatsappQrCode = async (): Promise<QrCodeResponse | null> => {
   return fetchFromApi('/onboarding/whatsapp-qr');
 };
+
+export const activateAgent = async () => {
+  return fetchFromApi('/agent/activate', { method: 'POST' });
+};

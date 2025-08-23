@@ -43,12 +43,14 @@ class AIRouter:
             query_embedding = await self._get_embedding(query)
 
             # 2. Find relevant document chunks
-            relevant_chunks = self.supabase_adapter.find_relevant_chunks(user_id, query_embedding)
+            relevant_chunks = await self.supabase_adapter.find_relevant_chunks(
+                user_id, query_embedding
+            ) or []
 
             context = ""
             if relevant_chunks:
                 logger.info("Found %d relevant document chunks.", len(relevant_chunks))
-                context_texts = [chunk['content'] for chunk in relevant_chunks]
+                context_texts = [chunk["content"] for chunk in relevant_chunks]
                 context = "\n\n--- Relevant Information ---\n" + "\n\n".join(context_texts)
             else:
                 logger.info("No relevant document chunks found.")

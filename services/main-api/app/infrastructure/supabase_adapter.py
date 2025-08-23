@@ -94,6 +94,20 @@ class SupabaseAdapter:
             logger.error("Error upserting agent for user %s: %s", user_id, e)
             return None
 
+    async def update_agent_status(self, agent_id: str, status: str) -> bool:
+        """Updates the status field for a given agent."""
+        try:
+            query = (
+                self.client.table("agents")
+                .update({"status": status})
+                .eq("id", agent_id)
+            )
+            await self._execute(query)
+            return True
+        except Exception as e:
+            logger.error("Error updating status for agent %s: %s", agent_id, e)
+            return False
+
     async def create_document_record(self, user_id: str, agent_id: str, file_name: str, storage_path: str):
         """
         Creates a new record in the 'documents' table.

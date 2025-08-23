@@ -15,6 +15,7 @@ jest.mock('@/services/api', () => ({
 
 jest.mock('next/link', () => ({ __esModule: true, default: ({ children }: any) => <div>{children}</div> }));
 jest.mock('qrcode.react', () => ({ __esModule: true, default: () => <div>QR</div> }));
+jest.mock('next/navigation', () => ({ useRouter: () => ({ push: jest.fn() }) }));
 
 describe('OnboardingPage', () => {
   it('renders heading', () => {
