@@ -26,6 +26,13 @@ const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID;
 const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY;
 const R2_REGION = process.env.R2_REGION || "auto";
 
+// Validate R2 configuration
+if (!R2_ENDPOINT_URL || !R2_BUCKET_NAME || !R2_ACCESS_KEY_ID || !R2_SECRET_ACCESS_KEY) {
+    console.error('❌ Missing R2 configuration. Set R2_ENDPOINT_URL, R2_BUCKET_NAME, R2_ACCESS_KEY_ID, and R2_SECRET_ACCESS_KEY.');
+    process.exit(1);
+}
+const MAX_AUDIO_BYTES = 10 * 1024 * 1024;
+
 // --- Initialize Clients ---
 console.log("🤖 WhatsApp Gateway Initializing...");
 
@@ -142,28 +149,29 @@ client.on('message', async message => {
         if (message.hasMedia) {
             const media = await message.downloadMedia();
             if (media && media.mimetype.startsWith('audio/')) {
+                const audioBuffer = Buffer.from(media.data, 'base64');
+                if (audioBuffer.length > MAX_AUDIO_BYTES) {
+                    console.error(`Audio from ${userId} exceeds size limit.`);
+                    message.reply('Audio file is too large. Max 10MB.');
+                    return;
+                }
                 console.log(`🎤 Received audio message from ${userId}. Type: ${media.mimetype}`);
-
                 const mediaKey = `${userId}/${uuidv4()}.${media.mimetype.split('/')[1]}`;
-
-                // Upload to R2
                 await s3Client.send(new PutObjectCommand({
                     Bucket: R2_BUCKET_NAME,
                     Key: mediaKey,
-                    Body: Buffer.from(media.data, 'base64'),
+                    Body: audioBuffer,
                     ContentType: media.mimetype,
                 }));
-
                 console.log(`☁️  Uploaded audio to R2 with key: ${mediaKey}`);
-
                 messagePayload.mediaKey = mediaKey;
                 messagePayload.mediaType = media.mimetype;
-
             } else {
                 console.log(`📸 Media from ${userId} is not audio, ignoring.`);
-                message.reply("Sorry, I can only process text and audio messages for now.");
+                message.reply('Sorry, I can only process text and audio messages for now.');
                 return;
             }
+
         } else {
             console.log(`✍️ Received text message from ${userId}: "${message.body}"`);
             messagePayload.body = message.body;

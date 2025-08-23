@@ -17,6 +17,20 @@ STREAM_OUT = "events:transcribed_message"
 CONSUMER_GROUP = "group:transcription-workers"
 CONSUMER_NAME = f"consumer:transcription-worker-{os.getpid()}"
 
+
+# Redis with reconnection
+
+
+async def create_redis_client(retry=0):
+    delay = min(2 ** retry, 30)
+    try:
+        client = Redis.from_url(REDIS_URL, decode_responses=True)
+        await client.ping()
+        return client
+    except Exception as e:
+        logger.error("Redis connection error: %s", e)
+        await asyncio.sleep(delay)
+        return await create_redis_client(retry + 1)
 # R2 Configuration
 def load_r2_config() -> dict[str, str]:
     required = [
@@ -58,29 +72,33 @@ s3_client = None
 whisper_model = None
 
 
+
 def initialize_external_clients():
     """Initializes non-async clients. Can be run in an executor."""
     global s3_client, whisper_model
-    try:
-        s3_client = boto3.client(
-            "s3",
-            endpoint_url=_r2_cfg["endpoint_url"],
-            aws_access_key_id=_r2_cfg["access_key"],
-            aws_secret_access_key=_r2_cfg["secret_key"],
-            region_name="auto",
-        )
-        logger.info("✅ R2 S3 client initialized.")
-    except Exception as e:
-        logger.error("❌ Failed to initialize R2 Storage client: %s", e)
-
+    for attempt in range(5):
+        try:
+            s3_client = boto3.client(
+                "s3",
+                endpoint_url=_r2_cfg["endpoint_url"],
+                aws_access_key_id=_r2_cfg["access_key"],
+                aws_secret_access_key=_r2_cfg["secret_key"],
+                region_name="auto",
+            )
+            logger.info("✅ R2 S3 client initialized.")
+            break
+        except Exception as e:
+            logger.error("❌ Failed to initialize R2 Storage client: %s", e)
+            time.sleep(2 ** attempt)
+    else:
+        s3_client = None
     try:
         logger.info("Loading Whisper model '%s'...", MODEL_SIZE)
         whisper_model = WhisperModel(MODEL_SIZE, device=DEVICE, compute_type=COMPUTE_TYPE)
         logger.info("✅ Whisper model loaded.")
+
     except Exception as e:
         logger.error("❌ Failed to initialize Whisper model: %s", e)
-
-
 # --- Helper Functions (Blocking) ---
 def download_audio_from_r2_sync(file_key):
     """Downloads an audio file from R2 and returns its local path."""
@@ -205,7 +223,7 @@ async def main():
         logger.error("Cannot start worker without external clients. Exiting.")
         return
 
-    redis_client = Redis.from_url(REDIS_URL, decode_responses=True)
+    redis_client = await create_redis_client()
     await setup_redis(redis_client)
 
     logger.info("Starting to listen for messages...")

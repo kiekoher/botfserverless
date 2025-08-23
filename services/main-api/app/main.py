@@ -7,7 +7,6 @@ from contextlib import asynccontextmanager
 from redis.asyncio import Redis, from_url as redis_from_url
 from redis.exceptions import ResponseError
 from typing import Optional
-from collections import defaultdict
 
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -87,29 +86,35 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Main API", version="1.0.0", lifespan=lifespan)
 
+allowed_origins = [o.strip() for o in os.getenv('FRONTEND_ORIGINS', '').split(',') if o.strip()]
+if not allowed_origins:
+    raise RuntimeError('FRONTEND_ORIGINS environment variable must be set')
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[os.getenv("FRONTEND_ORIGIN", "*")],
+    allow_origins=allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=['*'],
+    allow_headers=['*'],
 )
 
-request_counts = defaultdict(lambda: (0, time.time()))
 
 
 @app.middleware("http")
 async def rate_limit_middleware(request: Request, call_next):
     ip = request.client.host
-    count, start = request_counts[ip]
-    now = time.time()
-    if now - start >= 60:
-        request_counts[ip] = (1, now)
-    else:
-        if count >= RATE_LIMIT:
-            return JSONResponse(status_code=429, content={"detail": "Too Many Requests"})
-        request_counts[ip] = (count + 1, start)
+    redis = request.app.state.redis
+    key = f'rate_limit:{ip}'
+    try:
+        current = await redis.incr(key)
+        if current == 1:
+            await redis.expire(key, 60)
+        if current > RATE_LIMIT:
+            return JSONResponse(status_code=429, content={'detail': 'Too Many Requests'})
+    except Exception as e:
+        logger.error('Rate limit middleware error: %s', e)
     return await call_next(request)
+
 
 # --------------------------
 #   Inicialización de deps

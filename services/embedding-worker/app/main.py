@@ -14,13 +14,26 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 logger.info("🤖 Embedding Worker Initializing...")
 
-# Redis
+
+# Redis with reconnection
 REDIS_HOST = os.environ.get("REDIS_HOST", "redis")
 REDIS_PORT = int(os.environ.get("REDIS_PORT", 6379))
 STREAM_IN = "events:new_document"
 CONSUMER_GROUP = "group:embedding-worker"
 CONSUMER_NAME = f"consumer:embedding-worker-{os.getenv('HOSTNAME', '1')}"
-redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
+
+def create_redis_client(retry=0):
+    delay = min(2 ** retry, 30)
+    try:
+        client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
+        client.ping()
+        return client
+    except Exception as e:
+        logger.error("Redis connection error: %s", e)
+        time.sleep(delay)
+        return create_redis_client(retry + 1)
+
+redis_client = create_redis_client()
 
 # Supabase client (use restricted service key for embeddings)
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
@@ -48,17 +61,26 @@ def load_r2_config() -> dict[str, str]:
     }
 
 r2_config = load_r2_config()
-R2_BUCKET_NAME = r2_config["bucket"]
-s3_client = boto3.client(
-    "s3",
-    endpoint_url=r2_config["endpoint_url"],
-    aws_access_key_id=r2_config["access_key"],
-    aws_secret_access_key=r2_config["secret_key"],
-)
+R2_BUCKET_NAME = r2_config['bucket']
 
+def create_s3_client(retry=0):
+    delay = min(2 ** retry, 30)
+    try:
+        return boto3.client(
+            "s3",
+            endpoint_url=r2_config["endpoint_url"],
+            aws_access_key_id=r2_config["access_key"],
+            aws_secret_access_key=r2_config["secret_key"],
+        )
+    except Exception as e:
+        logger.error("R2 client error: %s", e)
+        time.sleep(delay)
+        return create_s3_client(retry + 1)
+
+s3_client = create_s3_client()
 # OpenAI
 client = OpenAI()
-EMBEDDING_MODEL = "text-embedding-3-large"
+EMBEDDING_MODEL = "text-embedding-3-small"
 
 # Tiktoken for chunking
 tokenizer = tiktoken.get_encoding("cl100k_base")
