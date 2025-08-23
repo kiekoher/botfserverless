@@ -22,19 +22,23 @@ const R2_REGION = process.env.R2_REGION || "auto";
 // --- Initialize Clients ---
 console.log("🤖 WhatsApp Gateway Initializing...");
 
-// Redis Client
+// Redis Client with retry logic
 const redisClient = createClient({ url: `redis://${REDIS_HOST}:6379` });
 redisClient.on('error', (err) => console.error('Redis Client Error', err));
 
-// Ensure connection is fully established and errors are logged
-(async () => {
+async function connectRedis(retry = 0) {
+    const delay = Math.min(1000 * 2 ** retry, 30000);
     try {
         await redisClient.connect();
         console.log('🔌 Connected to Redis.');
     } catch (err) {
         console.error('❌ Redis connection error:', err);
+        await new Promise((res) => setTimeout(res, delay));
+        return connectRedis(retry + 1);
     }
-})();
+}
+
+connectRedis();
 
 // S3 Client for R2
 const s3Client = new S3Client({
@@ -55,6 +59,22 @@ const client = new Client({
         headless: true,
         args: ['--no-sandbox', '--disable-setuid-sandbox'],
     }
+});
+
+async function initializeClient(retry = 0) {
+    const delay = Math.min(1000 * 2 ** retry, 30000);
+    try {
+        await client.initialize();
+    } catch (err) {
+        console.error('❌ WhatsApp init error:', err);
+        await new Promise((res) => setTimeout(res, delay));
+        return initializeClient(retry + 1);
+    }
+}
+
+client.on('disconnected', async (reason) => {
+    console.error(`⚠️ WhatsApp disconnected: ${reason}. Reinitializing...`);
+    await initializeClient();
 });
 
 // --- Event Handlers ---
@@ -84,8 +104,7 @@ client.on('ready', async () => {
     // Ensure Redis is connected before starting consumer
     if (!redisClient.isOpen) {
         try {
-            await redisClient.connect();
-            console.log('🔌 Connected to Redis.');
+            await connectRedis();
         } catch (err) {
             console.error('❌ Redis connection error:', err);
             return;
@@ -209,4 +228,4 @@ async function startRedisConsumer() {
     }
 }
 
-client.initialize();
+initializeClient();

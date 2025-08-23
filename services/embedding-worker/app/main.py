@@ -5,13 +5,14 @@ import boto3
 import openai
 import tiktoken
 import io
+import logging
 from PyPDF2 import PdfReader
 from supabase import create_client, Client
-from dotenv import load_dotenv
 
 # --- Initialization ---
-load_dotenv()
-print("🤖 Embedding Worker Initializing...")
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+logger.info("🤖 Embedding Worker Initializing...")
 
 # Redis
 REDIS_HOST = os.environ.get("REDIS_HOST", "redis")
@@ -25,7 +26,7 @@ redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=Tr
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY")
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
-print("🔌 Supabase client created with service role.")
+logger.info("🔌 Supabase client created with service role.")
 
 # R2/S3
 R2_ENDPOINT_URL = os.environ.get("R2_ENDPOINT_URL")
@@ -47,11 +48,18 @@ MAX_TOKENS_PER_CHUNK = 500 # A reasonable chunk size
 def update_document_status(doc_id: str, status: str):
     try:
         supabase.table("documents").update({"status": status}).eq("id", doc_id).execute()
-        print(f"Updated document {doc_id} status to {status}")
+        logger.info("Updated document %s status to %s", doc_id, status)
     except Exception as e:
-        print(f"❌ Error updating document status for {doc_id}: {e}")
+        logger.error("Error updating document status for %s: %s", doc_id, e)
+
+MAX_FILE_SIZE_MB = 10
 
 def get_text_from_storage(storage_path: str) -> str:
+    head = s3_client.head_object(Bucket=R2_BUCKET_NAME, Key=storage_path)
+    size = head.get("ContentLength", 0)
+    if size > MAX_FILE_SIZE_MB * 1024 * 1024:
+        raise ValueError("File exceeds maximum allowed size of 10MB")
+
     obj = s3_client.get_object(Bucket=R2_BUCKET_NAME, Key=storage_path)
     content = obj['Body'].read()
 
@@ -74,7 +82,7 @@ def chunk_text(text: str) -> list[str]:
         chunk_tokens = tokens[i:i + MAX_TOKENS_PER_CHUNK]
         chunk_text = tokenizer.decode(chunk_tokens)
         chunks.append(chunk_text)
-    print(f"Split text into {len(chunks)} chunks.")
+    logger.info("Split text into %d chunks.", len(chunks))
     return chunks
 
 def get_embeddings(texts: list[str]) -> list[list[float]]:
@@ -84,16 +92,16 @@ def get_embeddings(texts: list[str]) -> list[list[float]]:
 # --- Main Worker Loop ---
 
 def main():
-    print("Creating consumer group if it doesn't exist...")
+    logger.info("Creating consumer group if it doesn't exist...")
     try:
         redis_client.xgroup_create(STREAM_IN, CONSUMER_GROUP, id="0", mkstream=True)
     except redis.exceptions.ResponseError as e:
         if "BUSYGROUP" in str(e):
-            print(f"Consumer group '{CONSUMER_GROUP}' already exists.")
+            logger.info("Consumer group '%s' already exists.", CONSUMER_GROUP)
         else:
             raise
 
-    print(f"👂 Worker started. Listening for events on '{STREAM_IN}'...")
+    logger.info("👂 Worker started. Listening for events on '%s'...", STREAM_IN)
     while True:
         try:
             response = redis_client.xreadgroup(
@@ -108,7 +116,7 @@ def main():
             storage_path = message_data.get("storage_path")
             user_id = message_data.get("user_id")
 
-            print(f"Processing document {doc_id} from {storage_path}")
+            logger.info("Processing document %s from %s", doc_id, storage_path)
             update_document_status(doc_id, "processing")
 
             try:
@@ -132,19 +140,19 @@ def main():
                     })
 
                 supabase.table("document_chunks").insert(records_to_insert).execute()
-                print(f"✅ Successfully inserted {len(records_to_insert)} chunks for document {doc_id}")
+                logger.info("Successfully inserted %d chunks for document %s", len(records_to_insert), doc_id)
 
                 # 5. Mark as complete
                 update_document_status(doc_id, "completed")
 
             except Exception as e:
-                print(f"❌ Failed to process document {doc_id}: {e}")
+                logger.error("Failed to process document %s: %s", doc_id, e)
                 update_document_status(doc_id, "failed")
 
             redis_client.xack(STREAM_IN, CONSUMER_GROUP, message_id)
 
         except Exception as e:
-            print(f"🚨 Critical error in worker loop: {e}")
+            logger.error("Critical error in worker loop: %s", e)
             time.sleep(5)
 
 if __name__ == "__main__":
