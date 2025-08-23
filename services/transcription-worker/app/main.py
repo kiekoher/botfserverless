@@ -158,7 +158,7 @@ async def process_message_with_retry(redis_client: Redis, message_id, message_da
                 "transcribed": transcribed,
             }
 
-            await redis_client.xadd(STREAM_OUT, output_payload)
+            await redis_client.xadd(STREAM_OUT, output_payload, maxlen=10000, approximate=True)
             logger.info("Forwarded message for %s to %s", message_data['userId'], STREAM_OUT)
             return True
 
@@ -217,7 +217,7 @@ async def main():
                         dlq_payload = message_data.copy()
                         dlq_payload["error_service"] = "transcription-worker"
                         dlq_payload["error_timestamp"] = str(time.time())
-                        await redis_client.xadd(DEAD_LETTER_QUEUE, dlq_payload)
+                        await redis_client.xadd(DEAD_LETTER_QUEUE, dlq_payload, maxlen=10000, approximate=True)
                         await redis_client.xack(STREAM_IN, CONSUMER_GROUP, message_id)
                         logger.error(
                             "Moved message %s to DLQ '%s'", message_id, DEAD_LETTER_QUEUE

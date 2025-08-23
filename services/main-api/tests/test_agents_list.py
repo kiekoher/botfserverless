@@ -27,9 +27,9 @@ def test_list_agents_for_user(client, mocker):
         return_value=mock_user,
     )
     mock_adapter = mocker.Mock()
-    mock_adapter.list_agents_for_user.return_value = [
+    mock_adapter.list_agents_for_user = AsyncMock(return_value=[
         {"id": "1", "name": "Agent 1", "status": "active"}
-    ]
+    ])
     app.state.supabase_adapter = mock_adapter
 
     response = client.get(

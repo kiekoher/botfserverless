@@ -40,7 +40,7 @@ async def list_documents_for_user(
     """
     supabase_adapter = request.app.state.supabase_adapter
     try:
-        documents = supabase_adapter.get_documents_for_user(user_id=user_id)
+        documents = await supabase_adapter.get_documents_for_user(user_id=user_id)
         return documents
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -67,7 +67,7 @@ async def upload_knowledge_file(
         raise HTTPException(status_code=400, detail="File too large.")
 
     # 1. Get the agent for the user to associate the document
-    agent = supabase_adapter.get_agent_for_user(user_id=user_id)
+    agent = await supabase_adapter.get_agent_for_user(user_id=user_id)
     if not agent:
         raise HTTPException(status_code=404, detail="No active agent found for this user. Please configure an agent first.")
 
@@ -82,7 +82,7 @@ async def upload_knowledge_file(
         raise HTTPException(status_code=500, detail="Failed to upload file to storage.")
 
     # 3. Create document record in Supabase
-    document_record = supabase_adapter.create_document_record(
+    document_record = await supabase_adapter.create_document_record(
         user_id=user_id,
         agent_id=agent_id,
         file_name=file.filename,
@@ -104,14 +104,14 @@ async def upload_knowledge_file(
             "storage_path": storage_path,
             "user_id": user_id,
         }
-        await redis_client.xadd(REDIS_DOCUMENT_STREAM, event_payload)
+        await redis_client.xadd(REDIS_DOCUMENT_STREAM, event_payload, maxlen=10000, approximate=True)
     except Exception as e:
         try:
             s3_client.delete_object(Bucket=R2_BUCKET_NAME, Key=storage_path)
         except Exception as s3e:
             logger.error("Error deleting file from R2 after Redis failure: %s", s3e)
         try:
-            supabase_adapter.delete_document(document_id)
+            await supabase_adapter.delete_document(document_id)
         except Exception as dbe:
             logger.error("Error deleting document record after Redis failure: %s", dbe)
         logger.error("Error publishing document event to Redis: %s", e)

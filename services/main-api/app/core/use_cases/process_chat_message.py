@@ -1,5 +1,4 @@
 import logging
-
 from app.core.ai_router import AIRouter
 from app.infrastructure.supabase_adapter import SupabaseAdapter
 
@@ -21,7 +20,7 @@ class ProcessChatMessage:
         # 1. Get the agent configuration for the user
         # Note: In a multi-agent setup, we'd need a way to map user_id to a specific agent.
         # For now, we get the first agent associated with the user's account.
-        agent = self.db_adapter.get_agent_for_user(user_id)
+        agent = await self.db_adapter.get_agent_for_user(user_id)
 
         if not agent:
             return "I'm sorry, I can't find an agent configured for your account."
@@ -30,7 +29,7 @@ class ProcessChatMessage:
             return "This agent is currently paused. Please resume it from the dashboard."
 
         # 2. Get the conversation history
-        history = self.db_adapter.get_conversation_history(
+        history = await self.db_adapter.get_conversation_history(
             agent_id=agent['id'],
             user_id=user_id
         )
@@ -52,7 +51,7 @@ class ProcessChatMessage:
 
         # 3. Log the conversation
         try:
-            self.db_adapter.log_conversation(
+            await self.db_adapter.log_conversation(
                 agent_id=agent['id'],
                 user_id=user_id,
                 user_message=user_query,

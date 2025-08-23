@@ -24,3 +24,41 @@ describe('getAgents', () => {
     expect(agents).toEqual(mockAgents);
   });
 });
+
+describe('Onboarding API', () => {
+  it('fetches onboarding status with auth token', async () => {
+    const { getOnboardingStatus } = await import('../api');
+    const mockStatus = { status: 'connected' };
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(mockStatus)
+    }) as any;
+
+    const status = await getOnboardingStatus();
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/onboarding/status'),
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: 'Bearer token' })
+      })
+    );
+    expect(status).toEqual(mockStatus);
+  });
+
+  it('returns null when QR code not available', async () => {
+    const { getWhatsappQrCode } = await import('../api');
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 204,
+    }) as any;
+
+    const qr = await getWhatsappQrCode();
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/onboarding/whatsapp-qr'),
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: 'Bearer token' })
+      })
+    );
+    expect(qr).toBeNull();
+  });
+});

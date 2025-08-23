@@ -22,7 +22,7 @@ async def list_agents_for_current_user(
         supabase_adapter = SupabaseAdapter()
 
     try:
-        return supabase_adapter.list_agents_for_user(user_id=user_id)
+        return await supabase_adapter.list_agents_for_user(user_id=user_id)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -43,7 +43,7 @@ async def upsert_agent_for_current_user(
         supabase_adapter = SupabaseAdapter()
 
     try:
-        agent = supabase_adapter.upsert_agent_config(
+        agent = await supabase_adapter.upsert_agent_config(
             user_id=user_id,
             name=config.name,
             product_description=config.product_description,
@@ -69,7 +69,7 @@ async def get_agent_for_current_user(
         supabase_adapter = SupabaseAdapter()
 
     try:
-        agent = supabase_adapter.get_agent_for_user(user_id=user_id)
+        agent = await supabase_adapter.get_agent_for_user(user_id=user_id)
         if not agent:
             raise HTTPException(status_code=404, detail="Agent configuration not found for this user.")
         return agent

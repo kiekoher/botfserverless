@@ -1,4 +1,5 @@
 import os
+import asyncio
 import logging
 from supabase import create_client, Client
 
@@ -15,35 +16,44 @@ class SupabaseAdapter:
                 "SUPABASE_URL and SUPABASE_KEY must be set in environment."
             )
         self.client: Client = create_client(url, key)
+    async def _execute(self, query):
+        return await asyncio.to_thread(query.execute)
 
-    def get_agent_for_user(self, user_id: str):
+    async def get_agent_for_user(self, user_id: str):
         """
         Retrieves the first agent associated with a user.
         NOTE: This is a simplification. A real app would have a more robust
         way to select the correct agent.
         """
         try:
-            response = self.client.table("agents").select("*").eq("user_id", user_id).limit(1).single().execute()
+            query = (
+                self.client.table("agents")
+                .select("*")
+                .eq("user_id", user_id)
+                .limit(1)
+                .single()
+            )
+            response = await self._execute(query)
             return response.data
         except Exception as e:
             logger.error("Error fetching agent for user %s: %s", user_id, e)
             return None
 
-    def list_agents_for_user(self, user_id: str):
+    async def list_agents_for_user(self, user_id: str):
         """Return all agents belonging to a user."""
         try:
-            response = (
+            query = (
                 self.client.table("agents")
                 .select("*")
                 .eq("user_id", user_id)
-                .execute()
             )
+            response = await self._execute(query)
             return response.data
         except Exception as e:
             logger.error("Error listing agents for user %s: %s", user_id, e)
             return []
 
-    def upsert_agent_config(self, user_id: str, name: str, product_description: str, base_prompt: str):
+    async def upsert_agent_config(self, user_id: str, name: str, product_description: str, base_prompt: str):
         """
         Creates or updates an agent's configuration.
         An upsert is used to ensure a user has only one agent entry.
@@ -53,7 +63,14 @@ class SupabaseAdapter:
             # We must use an RPC call for this or do a select-then-insert/update.
             # For simplicity, we'll use upsert which is available in v2 or do it manually.
             # Let's check for an existing agent first.
-            existing_agent = self.client.table("agents").select("id").eq("user_id", user_id).limit(1).single().execute()
+            existing_query = (
+                self.client.table("agents")
+                .select("id")
+                .eq("user_id", user_id)
+                .limit(1)
+                .single()
+            )
+            existing_agent = await self._execute(existing_query)
 
             agent_data = {
                 "user_id": user_id,
@@ -64,57 +81,68 @@ class SupabaseAdapter:
             }
 
             if existing_agent.data:
-                # Update existing agent
-                response = self.client.table("agents").update(agent_data).eq("user_id", user_id).execute()
+                response = await self._execute(
+                    self.client.table("agents").update(agent_data).eq("user_id", user_id)
+                )
             else:
-                # Insert new agent
-                response = self.client.table("agents").insert(agent_data).execute()
+                response = await self._execute(
+                    self.client.table("agents").insert(agent_data)
+                )
 
             return response.data[0] if response.data else None
         except Exception as e:
             logger.error("Error upserting agent for user %s: %s", user_id, e)
             return None
 
-    def create_document_record(self, user_id: str, agent_id: str, file_name: str, storage_path: str):
+    async def create_document_record(self, user_id: str, agent_id: str, file_name: str, storage_path: str):
         """
         Creates a new record in the 'documents' table.
         """
         try:
-            response = self.client.table("documents").insert({
+            query = self.client.table("documents").insert({
                 "user_id": user_id,
                 "agent_id": agent_id,
                 "file_name": file_name,
                 "storage_path": storage_path,
                 "status": "pending"
-            }).execute()
+            })
+            response = await self._execute(query)
             return response.data[0] if response.data else None
         except Exception as e:
             logger.error("Error creating document record for user %s: %s", user_id, e)
             return None
 
-    def get_documents_for_user(self, user_id: str):
+    async def get_documents_for_user(self, user_id: str):
         """
         Retrieves all document records for a given user.
         """
         try:
-            response = self.client.table("documents").select("*").eq("user_id", user_id).order("created_at", desc=True).execute()
+            query = (
+                self.client.table("documents")
+                .select("*")
+                .eq("user_id", user_id)
+                .order("created_at", desc=True)
+            )
+            response = await self._execute(query)
             return response.data
         except Exception as e:
             logger.error("Error fetching documents for user %s: %s", user_id, e)
             return []
 
-    def get_conversation_history(self, agent_id: str, user_id: str, limit: int = 10):
+    async def get_conversation_history(self, agent_id: str, user_id: str, limit: int = 10):
         """
         Retrieves the last N conversation turns for a given agent and user.
         """
         try:
-            response = self.client.table("conversations") \
-                .select("user_message, bot_response, created_at") \
-                .eq("agent_id", agent_id) \
-                .eq("user_id", user_id) \
-                .order("created_at", desc=True) \
-                .limit(limit) \
-                .execute()
+            query = (
+                self.client.table("conversations")
+                .select("user_message, bot_response, created_at")
+                .eq("agent_id", agent_id)
+                .eq("user_id", user_id)
+                .order("created_at", desc=True)
+                .limit(limit)
+            )
+            response = await self._execute(query)
 
             # The history needs to be in chronological order for the AI
             history = sorted(response.data, key=lambda x: x['created_at'])
@@ -130,7 +158,7 @@ class SupabaseAdapter:
             logger.error("Error fetching conversation history for agent %s: %s", agent_id, e)
             return []
 
-    def log_conversation(
+    async def log_conversation(
         self,
         agent_id: str,
         user_id: str,
@@ -141,18 +169,15 @@ class SupabaseAdapter:
         Logs a conversation to the 'conversations' table in Supabase.
         """
         try:
-            data, count = (
-                self.client.table("conversations")
-                .insert(
-                    {
-                        "agent_id": agent_id,
-                        "user_id": user_id,
-                        "user_message": user_message,
-                        "bot_response": bot_response,
-                    }
-                )
-                .execute()
+            query = self.client.table("conversations").insert(
+                {
+                    "agent_id": agent_id,
+                    "user_id": user_id,
+                    "user_message": user_message,
+                    "bot_response": bot_response,
+                }
             )
+            data = await self._execute(query)
             return data
         except Exception as e:
             logger.error("Error logging conversation to Supabase: %s", e)
@@ -167,14 +192,14 @@ class SupabaseAdapter:
         # or another embedding service.
         pass
 
-    def find_relevant_chunks(
+    async def find_relevant_chunks(
         self, user_id: str, query_embedding: list[float], match_threshold: float = 0.5, match_count: int = 5
     ):
         """
         Performs a similarity search on the 'document_chunks' table for a specific user.
         """
         try:
-            response = self.client.rpc(
+            query = self.client.rpc(
                 "match_document_chunks",
                 {
                     "p_user_id": user_id,
@@ -182,16 +207,18 @@ class SupabaseAdapter:
                     "match_threshold": match_threshold,
                     "match_count": match_count,
                 },
-            ).execute()
+            )
+            response = await self._execute(query)
             return response.data
         except Exception as e:
             logger.error("Error performing similarity search in Supabase: %s", e)
             return []
 
-    def delete_document(self, document_id: str) -> bool:
+    async def delete_document(self, document_id: str) -> bool:
         """Deletes a document record by id."""
         try:
-            self.client.table("documents").delete().eq("id", document_id).execute()
+            query = self.client.table("documents").delete().eq("id", document_id)
+            await self._execute(query)
             return True
         except Exception as e:
             logger.error("Error deleting document %s: %s", document_id, e)
