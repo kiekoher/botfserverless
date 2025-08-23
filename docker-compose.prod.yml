@@ -88,7 +88,7 @@ services:
       - REDIS_HOST=${REDIS_HOST}
       - SUPERVISOR_WHATSAPP_NUMBER=${SUPERVISOR_WHATSAPP_NUMBER}
     volumes:
-      - whatsapp_session_prod:/app/
+      - whatsapp_session_prod:/app/session
     depends_on:
       - redis
     logging:
@@ -140,6 +140,22 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  dlq-monitor:
+    build:
+      context: ./services/dlq-monitor
+      dockerfile: Dockerfile
+    container_name: eva_dlq_monitor_prod
+    restart: unless-stopped
+    environment:
+      - REDIS_HOST=${REDIS_HOST}
+    depends_on:
+      - redis
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
   frontend:
     build:
       context: ./frontend
@@ -150,6 +166,7 @@ services:
       - DOMAIN_NAME=${DOMAIN_NAME}
       - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
       - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
     healthcheck:
       test: ["CMD-SHELL", "nc -z localhost 3000 || exit 1"]
       interval: 10s

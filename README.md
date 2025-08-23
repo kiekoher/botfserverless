@@ -10,7 +10,7 @@ El sistema sigue una arquitectura de microservicios y está completamente orques
 -   **`main-api` (Python/FastAPI):** El núcleo de la aplicación. Maneja toda la lógica de negocio, gestiona el enrutamiento de modelos de IA y sirve la API REST principal. Se comunica con otros servicios de forma asíncrona.
 -   **`whatsapp-gateway` (Node.js):** El punto de entrada para todos los mensajes de usuario desde WhatsApp. Actúa como un puente, recibiendo mensajes, subiendo archivos multimedia y publicando eventos en un stream de Redis.
 -   **`transcription-worker` (Python):** Un trabajador dedicado que escucha los mensajes de audio en el stream de Redis, los transcribe usando un modelo local `faster-whisper` para garantizar la privacidad y un costo fijo, y publica el texto de vuelta para que `main-api` lo procese.
--   **`nginx` (Nginx):** Un proxy inverso que enruta el tráfico entrante al servicio apropiado (`frontend` o `main-api`) y maneja la terminación SSL con certificados auto-renovables de Let's Encrypt.
+-   **`traefik` (Traefik):** Un proxy inverso que enruta el tráfico entrante al servicio apropiado (`frontend` o `main-api`) y maneja la terminación SSL con certificados auto-renovables de Let's Encrypt.
 -   **`redis` (Redis):** Utilizado como un message broker de alto rendimiento (a través de Redis Streams) para facilitar la comunicación asíncrona entre los microservicios.
 -   **`loki` & `promtail`:** Una pila de logging completa para agregar y ver los logs de todos los contenedores en ejecución.
 
@@ -38,6 +38,7 @@ Estas variables controlan:
 
 - `GEMINI_EMBED_MODEL`: modelo utilizado para generar embeddings.
 - `GEMINI_CHAT_MODEL`: modelo utilizado para respuestas conversacionales.
+- `NEXT_PUBLIC_API_URL`: URL base de la API que el frontend usará para sus solicitudes.
 
 ### 3. Ejecutando el Sistema Localmente
 
@@ -59,7 +60,14 @@ docker-compose -f docker-compose.prod.yml logs -f whatsapp-gateway
 
 El proyecto incluye una suite de pruebas automatizadas tanto para el backend como para el frontend, que se ejecuta automáticamente en el pipeline de CI/CD.
 
-Para ejecutar las pruebas manualmente, primero asegúrese de que los servicios estén en funcionamiento:
+Para correr las pruebas de backend fuera de contenedores, instale las dependencias necesarias y ejecute `pytest`:
+
+```bash
+pip install -r requirements.txt
+pytest
+```
+
+Para ejecutar las pruebas manualmente dentro de los contenedores, primero asegúrese de que los servicios estén en funcionamiento:
 
 ```bash
 # Iniciar todos los servicios
