@@ -80,7 +80,7 @@ def create_s3_client(retry=0):
 s3_client = create_s3_client()
 # OpenAI
 client = OpenAI()
-EMBEDDING_MODEL = "text-embedding-3-small"
+EMBEDDING_MODEL = os.environ.get("OPENAI_EMBED_MODEL", "text-embedding-3-large")
 
 # Tiktoken for chunking
 tokenizer = tiktoken.get_encoding("cl100k_base")

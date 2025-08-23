@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     from app.infrastructure.gemini_adapter import GeminiAdapter
 
 # --- Configuration ---
-EMBEDDING_MODEL = "text-embedding-3-small"
+EMBEDDING_MODEL = os.getenv("OPENAI_EMBED_MODEL", "text-embedding-3-large")
 
 logger = logging.getLogger(__name__)
 

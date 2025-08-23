@@ -59,6 +59,7 @@ services:
       - GOOGLE_API_KEY=${GOOGLE_API_KEY}
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_EMBED_MODEL=${OPENAI_EMBED_MODEL}
       - REDIS_HOST=${REDIS_HOST}
       - FRONTEND_ORIGINS=${FRONTEND_ORIGINS}
     depends_on:
@@ -164,6 +165,7 @@ services:
       - SUPABASE_URL=${SUPABASE_URL}
       - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_EMBED_MODEL=${OPENAI_EMBED_MODEL}
     depends_on:
       - redis
     healthcheck:
