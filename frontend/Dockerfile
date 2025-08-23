@@ -8,8 +8,8 @@ WORKDIR /app
 # Copy package.json and package-lock.json
 COPY package*.json ./
 
-# Use npm ci for deterministic builds
-RUN npm ci
+# Use npm ci for deterministic builds and install only production deps
+RUN npm ci --only=production
 
 # Copy the rest of the application source code
 COPY . .

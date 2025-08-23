@@ -1,15 +1,10 @@
-import React from 'react';
+import QualityMetrics from '@/components/dashboard/QualityMetrics';
 
-const QualityPage = () => {
+export default function QualityPage() {
   return (
     <div className="p-6">
       <h1 className="text-2xl font-semibold text-gray-900">Quality Assurance</h1>
-      <p className="mt-2 text-sm text-gray-600">
-        This page will be used for auditing and analyzing the quality of agent conversations.
-      </p>
-      {/* Placeholder for future quality analysis components */}
+      <QualityMetrics />
     </div>
   );
-};
-
-export default QualityPage;
+}

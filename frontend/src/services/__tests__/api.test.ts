@@ -25,6 +25,51 @@ describe('getAgents', () => {
   });
 });
 
+describe('Quality API', () => {
+  it('fetches quality metrics', async () => {
+    const { getQualityMetrics } = await import('../api');
+    const mockMetrics = [{ id: '1', name: 'accuracy', value: 0.9 }];
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(mockMetrics)
+    }) as any;
+
+    const metrics = await getQualityMetrics();
+    expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/quality/metrics'), expect.any(Object));
+    expect(metrics).toEqual(mockMetrics);
+  });
+});
+
+describe('Billing API', () => {
+  it('fetches billing info', async () => {
+    const { getBillingInfo } = await import('../api');
+    const mockInfo = { plan: 'pro', status: 'active' };
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(mockInfo)
+    }) as any;
+
+    const info = await getBillingInfo();
+    expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/billing/info'), expect.any(Object));
+    expect(info).toEqual(mockInfo);
+  });
+});
+
+describe('Reports API', () => {
+  it('fetches opportunity briefs', async () => {
+    const { getOpportunityBriefs } = await import('../api');
+    const mockBriefs = [{ id: '1', summary: 'brief' }];
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(mockBriefs)
+    }) as any;
+
+    const briefs = await getOpportunityBriefs();
+    expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/reports/opportunity-briefs'), expect.any(Object));
+    expect(briefs).toEqual(mockBriefs);
+  });
+});
+
 describe('Onboarding API', () => {
   it('fetches onboarding status with auth token', async () => {
     const { getOnboardingStatus } = await import('../api');

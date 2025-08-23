@@ -55,6 +55,7 @@ services:
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - REDIS_HOST=${REDIS_HOST}
+      - FRONTEND_ORIGINS=${FRONTEND_ORIGINS}
     depends_on:
       - redis
     healthcheck:
@@ -86,11 +87,16 @@ services:
       - R2_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID}
       - R2_SECRET_ACCESS_KEY=${R2_SECRET_ACCESS_KEY}
       - REDIS_HOST=${REDIS_HOST}
-      - SUPERVISOR_WHATSAPP_NUMBER=${SUPERVISOR_WHATSAPP_NUMBER}
+      - WHATSAPP_USER_ID=${WHATSAPP_USER_ID}
     volumes:
       - whatsapp_session_prod:/app/session
     depends_on:
       - redis
+    healthcheck:
+      test: ["CMD-SHELL", "node healthcheck.js"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     logging:
       driver: json-file
       options:
@@ -111,6 +117,11 @@ services:
       - REDIS_HOST=${REDIS_HOST}
     depends_on:
       - redis
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import redis, os; redis.Redis(host=os.getenv('REDIS_HOST','redis')).ping()\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     logging:
       driver: json-file
       options:
@@ -134,6 +145,11 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
     depends_on:
       - redis
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import redis, os; redis.Redis(host=os.getenv('REDIS_HOST','redis')).ping()\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     logging:
       driver: json-file
       options:
@@ -150,6 +166,11 @@ services:
       - REDIS_HOST=${REDIS_HOST}
     depends_on:
       - redis
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import redis, os; redis.Redis(host=os.getenv('REDIS_HOST','redis')).ping()\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     logging:
       driver: json-file
       options:
