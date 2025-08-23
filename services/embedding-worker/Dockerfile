@@ -16,7 +16,10 @@ ENV PATH="/venv/bin:$PATH" \
     PYTHONUNBUFFERED=1
 
 # Copy the rest of the application's code into the container at /app
-COPY ./app /app
+RUN useradd -ms /bin/bash appuser
+COPY --chown=appuser:appuser ./app /app
+
+USER appuser
 
 # Command to run the application
 CMD ["python", "main.py"]

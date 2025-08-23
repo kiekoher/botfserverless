@@ -38,7 +38,7 @@ Estas variables controlan:
 
 - `GEMINI_EMBED_MODEL`: modelo utilizado para generar embeddings.
 - `GEMINI_CHAT_MODEL`: modelo utilizado para respuestas conversacionales.
-- `NEXT_PUBLIC_API_URL`: URL base de la API que el frontend usará para sus solicitudes.
+- `NEXT_PUBLIC_API_URL`: URL base de la API (por ejemplo `http://main-api:8000/api/v1`).
 
 ### 3. Ejecutando el Sistema Localmente
 

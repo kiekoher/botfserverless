@@ -25,14 +25,18 @@ WORKDIR /code
 # Copy the virtual environment from the builder
 COPY --from=builder /opt/venv /opt/venv
 
+RUN useradd -ms /bin/bash appuser
+
 # Copy the application code to the /code/app folder
-COPY ./app /code/app
+COPY --chown=appuser:appuser ./app /code/app
 
 # Activate the virtual environment
 ENV PATH="/opt/venv/bin:$PATH"
 
 # Add the /code directory to PYTHONPATH
 ENV PYTHONPATH=/code
+
+USER appuser
 
 # Execute the script as a module
 CMD ["python", "-m", "app.main"]

@@ -5,5 +5,7 @@ RUN python -m venv /venv \
     && /venv/bin/pip install --no-cache-dir -r requirements.txt
 ENV PATH="/venv/bin:$PATH" \
     PYTHONUNBUFFERED=1
-COPY ./app /app
+RUN useradd -ms /bin/bash appuser
+COPY --chown=appuser:appuser ./app /app
+USER appuser
 CMD ["python", "main.py"]
