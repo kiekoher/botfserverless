@@ -9,7 +9,9 @@ import {
   getWhatsappQrCode,
   OnboardingStatus,
   QrCodeResponse,
+  activateAgent,
 } from '@/services/api';
+import { useRouter } from 'next/navigation';
 
 // --- Child Components ---
 const StepButton = ({ step, currentStep, setStep, disabled }) => (
@@ -41,6 +43,7 @@ const StepContent = ({ step, children }) => (
 const OnboardingPage = () => {
   const queryClient = useQueryClient();
   const [currentStep, setCurrentStep] = useState(1);
+  const router = useRouter();
 
   // Query for WhatsApp connection status
   const { data: statusData, error: statusError } = useQuery({
@@ -61,10 +64,10 @@ const OnboardingPage = () => {
 
   // Mutation for activating the agent
   const activateMutation = useMutation({
-    mutationFn: () => fetch('/api/v1/agent/activate', { method: 'POST' }),
+    mutationFn: activateAgent,
     onSuccess: () => {
       alert('Agent activated successfully! You can now test it.');
-      // In a real app, you'd likely redirect or update UI state
+      router.push('/dashboard');
     },
     onError: () => {
       alert('Failed to activate agent. Please try again.');
