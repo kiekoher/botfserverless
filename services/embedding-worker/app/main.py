@@ -3,11 +3,11 @@ import time
 import redis
 import boto3
 from openai import OpenAI, RateLimitError
-import tiktoken
 import io
 import logging
 from PyPDF2 import PdfReader
 from supabase import create_client, Client
+from chunking import chunk_text
 
 # --- Initialization ---
 logging.basicConfig(level=logging.INFO)
@@ -82,10 +82,6 @@ s3_client = create_s3_client()
 client = OpenAI()
 EMBEDDING_MODEL = os.environ.get("OPENAI_EMBED_MODEL", "text-embedding-3-large")
 
-# Tiktoken for chunking
-tokenizer = tiktoken.get_encoding("cl100k_base")
-MAX_TOKENS_PER_CHUNK = 500 # A reasonable chunk size
-
 # --- Helper Functions ---
 
 def update_document_status(doc_id: str, status: str):
@@ -117,16 +113,6 @@ def get_text_from_storage(storage_path: str) -> str:
         return content.decode('utf-8')
     else:
         raise ValueError(f"Unsupported file type: {storage_path}")
-
-def chunk_text(text: str) -> list[str]:
-    tokens = tokenizer.encode(text)
-    chunks = []
-    for i in range(0, len(tokens), MAX_TOKENS_PER_CHUNK):
-        chunk_tokens = tokens[i:i + MAX_TOKENS_PER_CHUNK]
-        chunk_text = tokenizer.decode(chunk_tokens)
-        chunks.append(chunk_text)
-    logger.info("Split text into %d chunks.", len(chunks))
-    return chunks
 
 def get_embeddings(texts: list[str], max_retries: int = 3) -> list[list[float]]:
     delay = 5
