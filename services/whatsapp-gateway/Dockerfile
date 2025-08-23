@@ -61,8 +61,8 @@ WORKDIR /app
 # Copy package.json and package-lock.json (if available)
 COPY --chown=botuser:botuser package*.json ./
 
-# Install app dependencies
-RUN npm install --only=production
+# Install app dependencies deterministically
+RUN npm ci --only=production
 
 # Copy the rest of the application code
 COPY --chown=botuser:botuser . .

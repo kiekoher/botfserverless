@@ -17,24 +17,24 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Docker Compose
-        run: docker-compose -f docker-compose.prod.yml up -d
+        run: docker compose -f docker-compose.prod.yml up -d
 
       - name: Wait for services to be healthy
-        run: sleep 30
+        run: docker compose -f docker-compose.prod.yml wait
 
       - name: Lint and Test Backend
         run: |
-          docker-compose -f docker-compose.prod.yml exec -T main-api ruff format --check .
-          docker-compose -f docker-compose.prod.yml exec -T main-api ruff check .
-          docker-compose -f docker-compose.prod.yml exec -T main-api pytest
-          docker-compose -f docker-compose.prod.yml exec -T transcription-worker ruff format --check .
-          docker-compose -f docker-compose.prod.yml exec -T transcription-worker ruff check .
-          docker-compose -f docker-compose.prod.yml exec -T transcription-worker pytest
+          docker compose -f docker-compose.prod.yml exec -T main-api ruff format --check .
+          docker compose -f docker-compose.prod.yml exec -T main-api ruff check .
+          docker compose -f docker-compose.prod.yml exec -T main-api pytest
+          docker compose -f docker-compose.prod.yml exec -T transcription-worker ruff format --check .
+          docker compose -f docker-compose.prod.yml exec -T transcription-worker ruff check .
+          docker compose -f docker-compose.prod.yml exec -T transcription-worker pytest
 
       - name: Lint and Test Frontend
         run: |
-          docker-compose -f docker-compose.prod.yml exec -T frontend npm run lint
-          docker-compose -f docker-compose.prod.yml exec -T frontend npm run test
+          docker compose -f docker-compose.prod.yml exec -T frontend npm run lint
+          docker compose -f docker-compose.prod.yml exec -T frontend npm run test
 
   integration-test:
     name: End-to-End Integration Test
@@ -45,17 +45,14 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Docker Compose
-        run: docker-compose -f docker-compose.prod.yml up -d
+        run: docker compose -f docker-compose.prod.yml up -d
 
       - name: Wait for services to be healthy
-        run: |
-          echo "Waiting for all services to start..."
-          sleep 45 # Increased wait time for all services to be fully operational
-          echo "Services should be up."
+        run: docker compose -f docker-compose.prod.yml wait
 
       - name: Run End-to-End Test
         run: >
-          docker-compose -f docker-compose.prod.yml exec -T -e REDIS_HOST=redis main-api
+          docker compose -f docker-compose.prod.yml exec -T -e REDIS_HOST=redis main-api
           python /app/tests/end-to-end.py
 
   build-and-push:

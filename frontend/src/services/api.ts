@@ -153,3 +153,54 @@ export const getWhatsappQrCode = async (): Promise<QrCodeResponse | null> => {
 export const activateAgent = async () => {
   return fetchFromApi('/agent/activate', { method: 'POST' });
 };
+
+// --- Quality metrics ---
+export interface QualityMetric {
+  id: string;
+  name: string;
+  value: number;
+}
+
+export const getQualityMetrics = async (): Promise<QualityMetric[]> => {
+  return fetchFromApi('/quality/metrics');
+};
+
+// --- Billing ---
+export interface BillingInfo {
+  plan: string;
+  status: string;
+}
+
+export const getBillingInfo = async (): Promise<BillingInfo> => {
+  return fetchFromApi('/billing/info');
+};
+
+// --- Reports ---
+export interface OpportunityBrief {
+  id: string;
+  summary: string;
+}
+
+export const getOpportunityBriefs = async (): Promise<OpportunityBrief[]> => {
+  return fetchFromApi('/reports/opportunity-briefs');
+};
+
+export interface PerformanceLogEntry {
+  id: string;
+  event: string;
+  created_at: string;
+}
+
+export const getPerformanceLog = async (): Promise<PerformanceLogEntry[]> => {
+  return fetchFromApi('/reports/performance-log');
+};
+
+export interface ExecutiveSummary {
+  id: string;
+  title: string;
+  created_at: string;
+}
+
+export const getExecutiveSummaries = async (): Promise<ExecutiveSummary[]> => {
+  return fetchFromApi('/reports/executive-summaries');
+};

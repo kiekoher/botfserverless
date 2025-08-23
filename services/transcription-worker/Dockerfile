@@ -6,12 +6,12 @@ WORKDIR /app
 # Install system dependencies needed for build
 RUN apt-get update && apt-get install -y --no-install-recommends gcc
 
-COPY requirements.txt ./
+COPY requirements-prod.txt ./
 
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements-prod.txt
 
 # Stage 2: Runner
 FROM python:3.11-slim as runner

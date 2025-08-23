@@ -2,10 +2,10 @@
 FROM python:3.11-slim as builder
 
 WORKDIR /app
-COPY requirements.txt ./
+COPY requirements-prod.txt ./
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements-prod.txt
 
 # Stage 2: Runner
 FROM python:3.11-slim as runner
@@ -23,9 +23,6 @@ RUN useradd -ms /bin/bash appuser
 
 # Copia el código de la aplicación a la carpeta /code/app
 COPY --chown=appuser:appuser ./app /code/app
-
-# Copia el código de las pruebas
-COPY --chown=appuser:appuser ./tests /code/tests
 
 # Activa el entorno virtual
 ENV PATH="/opt/venv/bin:$PATH"

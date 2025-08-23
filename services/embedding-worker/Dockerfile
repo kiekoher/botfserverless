@@ -5,11 +5,11 @@ FROM python:3.11-slim
 WORKDIR /app
 
 # Copy the requirements file into the container at /app
-COPY requirements.txt .
+COPY requirements-prod.txt .
 
 # Create a virtual environment and install dependencies
 RUN python -m venv /venv \
-    && /venv/bin/pip install --no-cache-dir -r requirements.txt
+    && /venv/bin/pip install --no-cache-dir -r requirements-prod.txt
 
 # Ensure the virtualenv binaries are on PATH
 ENV PATH="/venv/bin:$PATH" \
