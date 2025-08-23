@@ -50,5 +50,6 @@ Thumbs.db
 # Archivos sensibles y otros
 *.pem
 *.sql
+!supabase/migrations/*.sql
 gcloud-credentials.json
 *~

@@ -74,3 +74,4 @@ watchfiles==1.1.0
 websockets==15.0.1
 boto3==1.35.23
 python-multipart==0.0.9
+prometheus-fastapi-instrumentator==7.0.0
