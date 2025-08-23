@@ -20,7 +20,9 @@ jobs:
         run: docker compose -f docker-compose.prod.yml up -d
 
       - name: Wait for services to be healthy
-        run: docker compose -f docker-compose.prod.yml wait
+        run: |
+          echo "Waiting for services to start..."
+          sleep 30
 
       - name: Lint and Test Backend
         run: |
@@ -48,7 +50,9 @@ jobs:
         run: docker compose -f docker-compose.prod.yml up -d
 
       - name: Wait for services to be healthy
-        run: docker compose -f docker-compose.prod.yml wait
+        run: |
+          echo "Waiting for services to start..."
+          sleep 30
 
       - name: Run End-to-End Test
         run: >
@@ -98,6 +102,20 @@ jobs:
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/eva-transcription-worker:latest
 
+      - name: Build and push Embedding Worker
+        uses: docker/build-push-action@v5
+        with:
+          context: ./services/embedding-worker
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/eva-embedding-worker:latest
+
+      - name: Build and push DLQ Monitor
+        uses: docker/build-push-action@v5
+        with:
+          context: ./services/dlq-monitor
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/eva-dlq-monitor:latest
+
   deploy:
     name: Deploy to Production
     runs-on: ubuntu-latest
@@ -111,33 +129,52 @@ jobs:
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            cd /app
+            # IMPORTANT: Change this path to your project directory on the server
+            cd /home/ubuntu/eva-platform
+
             # Create production environment file from secrets
-            echo "DOMAIN_NAME=${{ secrets.DOMAIN_NAME }}" > .env.prod
-            echo "CERTBOT_EMAIL=${{ secrets.CERTBOT_EMAIL }}" >> .env.prod
-
-            # Supabase
-            echo "SUPABASE_URL=${{ secrets.SUPABASE_URL }}" >> .env.prod
-            echo "SUPABASE_KEY=${{ secrets.SUPABASE_KEY }}" >> .env.prod
-            echo "NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}" >> .env.prod
-            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}" >> .env.prod
-
-            # AI Models
-            echo "GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }}" >> .env.prod
-            echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" >> .env.prod
-            echo "DEEPSEEK_API_KEY=${{ secrets.DEEPSEEK_API_KEY }}" >> .env.prod
-            echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> .env.prod
-
-            # R2 Storage
-            echo "R2_ENDPOINT_URL=${{ secrets.R2_ENDPOINT_URL }}" >> .env.prod
-            echo "R2_BUCKET_NAME=${{ secrets.R2_BUCKET_NAME }}" >> .env.prod
-            echo "R2_ACCESS_KEY_ID=${{ secrets.R2_ACCESS_KEY_ID }}" >> .env.prod
-            echo "R2_SECRET_ACCESS_KEY=${{ secrets.R2_SECRET_ACCESS_KEY }}" >> .env.prod
+            cat << EOF > .env.prod
+            # Docker and Traefik
+            DOMAIN_NAME=${{ secrets.DOMAIN_NAME }}
+            CERTBOT_EMAIL=${{ secrets.CERTBOT_EMAIL }}
 
             # Redis
-            echo "REDIS_HOST=redis" >> .env.prod
+            REDIS_HOST=redis
+            REDIS_PORT=6379
+
+            # Supabase
+            SUPABASE_URL=${{ secrets.SUPABASE_URL }}
+            SUPABASE_KEY=${{ secrets.SUPABASE_KEY }}
+            SUPABASE_SERVICE_KEY=${{ secrets.SUPABASE_SERVICE_KEY }}
+            NEXT_PUBLIC_SUPABASE_URL=${{ secrets.SUPABASE_URL }}
+            NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.SUPABASE_KEY }}
+
+            # AI Providers
+            GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }}
+            DEEPSEEK_API_KEY=${{ secrets.DEEPSEEK_API_KEY }}
+            OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
+            OPENAI_EMBED_MODEL=text-embedding-3-large
+
+            # Cloudflare R2
+            R2_ENDPOINT_URL=${{ secrets.R2_ENDPOINT_URL }}
+            R2_BUCKET_NAME=${{ secrets.R2_BUCKET_NAME }}
+            R2_ACCESS_KEY_ID=${{ secrets.R2_ACCESS_KEY_ID }}
+            R2_SECRET_ACCESS_KEY=${{ secrets.R2_SECRET_ACCESS_KEY }}
+
+            # WhatsApp Gateway
+            WHATSAPP_USER_ID=${{ secrets.WHATSAPP_USER_ID }}
+
+            # Frontend
+            FRONTEND_ORIGINS=https://${{ secrets.DOMAIN_NAME }}
+            NEXT_PUBLIC_API_URL=https://${{ secrets.DOMAIN_NAME }}/api/v1
+
+            # Main API
+            API_RATE_LIMIT=100
+            EOF
 
             # Pull latest images and restart services
+            echo "Pulling latest images from Docker Hub..."
             docker-compose -f docker-compose.prod.yml pull
-            docker-compose -f docker-compose.prod.yml down
-            docker-compose -f docker-compose.prod.yml up -d
+
+            echo "Restarting services with the new images..."
+            docker-compose -f docker-compose.prod.yml up -d --remove-orphans

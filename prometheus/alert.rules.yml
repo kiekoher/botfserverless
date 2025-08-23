@@ -1,0 +1,22 @@
+groups:
+  - name: general.rules
+    rules:
+      - alert: InstanceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Instance {{ $labels.instance }} down"
+          description: "{{ $labels.instance }} of job {{ $labels.job }} has been down for more than 1 minute."
+
+      # Placeholder for a more advanced alert.
+      # This would require a Redis exporter to expose the queue length as a metric.
+      - alert: RedisDLQGrowing
+        expr: redis_list_length{list="events:dead_letter_queue"} > 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis DLQ is growing"
+          description: "The Dead Letter Queue has more than 5 messages. Failures are occurring in message processing."
