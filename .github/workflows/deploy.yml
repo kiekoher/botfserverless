@@ -73,14 +73,6 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build and push Nginx
-        uses: docker/build-push-action@v5
-        with:
-          context: ./nginx
-          file: ./nginx/Dockerfile
-          push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/eva-nginx:latest
-
       - name: Build and push Frontend
         uses: docker/build-push-action@v5
         with:

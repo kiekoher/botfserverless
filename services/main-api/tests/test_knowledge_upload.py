@@ -3,11 +3,6 @@ from fastapi.testclient import TestClient
 from unittest.mock import AsyncMock, MagicMock
 
 from app.main import app
-import pytest
-from fastapi.testclient import TestClient
-from unittest.mock import AsyncMock, MagicMock
-
-from app.main import app
 from app.dependencies import get_current_user_id
 import app.api.v1.knowledge as knowledge
 
