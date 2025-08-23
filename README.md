@@ -60,7 +60,14 @@ docker-compose -f docker-compose.prod.yml logs -f whatsapp-gateway
 
 El proyecto incluye una suite de pruebas automatizadas tanto para el backend como para el frontend, que se ejecuta automáticamente en el pipeline de CI/CD.
 
-Para ejecutar las pruebas manualmente, primero asegúrese de que los servicios estén en funcionamiento:
+Para correr las pruebas de backend fuera de contenedores, instale las dependencias necesarias y ejecute `pytest`:
+
+```bash
+pip install -r requirements.txt
+pytest
+```
+
+Para ejecutar las pruebas manualmente dentro de los contenedores, primero asegúrese de que los servicios estén en funcionamiento:
 
 ```bash
 # Iniciar todos los servicios
