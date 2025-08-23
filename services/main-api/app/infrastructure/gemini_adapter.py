@@ -3,23 +3,20 @@ import asyncio
 import logging
 
 import google.generativeai as genai
-from dotenv import load_dotenv
-
-load_dotenv()
 
 
 logger = logging.getLogger(__name__)
 
 
 class GeminiAdapter:
-    def __init__(self):
-        api_key = os.environ.get("GOOGLE_API_KEY")
+    def __init__(self, api_key: str | None = None, embed_model: str | None = None, chat_model: str | None = None):
+        api_key = api_key or os.getenv("GOOGLE_API_KEY")
         if not api_key:
             raise ValueError("GOOGLE_API_KEY must be set in environment.")
         genai.configure(api_key=api_key)
 
-        embed_model = os.environ.get("GEMINI_EMBED_MODEL", "models/embedding-001")
-        chat_model = os.environ.get("GEMINI_CHAT_MODEL", "gemini-1.5-flash")
+        embed_model = embed_model or os.getenv("GEMINI_EMBED_MODEL", "models/embedding-001")
+        chat_model = chat_model or os.getenv("GEMINI_CHAT_MODEL", "gemini-1.5-flash")
         self.embedding_model = embed_model
         self.generative_model = genai.GenerativeModel(chat_model)
 

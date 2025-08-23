@@ -1,5 +1,10 @@
+import logging
+
 from app.core.ai_router import AIRouter
 from app.infrastructure.supabase_adapter import SupabaseAdapter
+
+
+logger = logging.getLogger(__name__)
 
 
 class ProcessChatMessage:
@@ -29,7 +34,11 @@ class ProcessChatMessage:
             agent_id=agent['id'],
             user_id=user_id
         )
-        print(f"Retrieved {len(history)} turns of history for agent {agent['id']}.")
+        logger.info(
+            "Retrieved %d turns of history for agent %s.",
+            len(history),
+            agent['id'],
+        )
 
         # 3. Route the query to the appropriate AI model
         bot_response = await self.router.route_query(
@@ -49,8 +58,16 @@ class ProcessChatMessage:
                 user_message=user_query,
                 bot_response=bot_response
             )
-            print(f"Logged conversation for user {user_id} with agent {agent['id']}.")
+            logger.info(
+                "Logged conversation for user %s with agent %s.",
+                user_id,
+                agent['id'],
+            )
         except Exception as e:
-            print(f"Error logging conversation for user {user_id}: {e}")
+            logger.error(
+                "Error logging conversation for user %s: %s",
+                user_id,
+                e,
+            )
 
         return bot_response

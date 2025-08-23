@@ -1,5 +1,6 @@
 import '@testing-library/jest-dom';
-import { getAgents } from '../api';
+
+process.env.NEXT_PUBLIC_API_URL = 'http://localhost/api/v1';
 
 jest.mock('@supabase/ssr', () => ({
   createBrowserClient: () => ({
@@ -11,6 +12,7 @@ jest.mock('@supabase/ssr', () => ({
 
 describe('getAgents', () => {
   it('fetches agent list', async () => {
+    const { getAgents } = await import('../api');
     const mockAgents = [{ id: '1', name: 'Agent 1', status: 'active' }];
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,

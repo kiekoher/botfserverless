@@ -110,10 +110,10 @@ async def setup_redis(redis_client: Redis):
         await redis_client.xgroup_create(
             STREAM_IN, CONSUMER_GROUP, id="0", mkstream=True
         )
-        print(f"Consumer group '{CONSUMER_GROUP}' created.")
+        logger.info("Consumer group '%s' created.", CONSUMER_GROUP)
     except ResponseError as e:
         if "BUSYGROUP" in str(e):
-            print(f"Consumer group '{CONSUMER_GROUP}' already exists.")
+            logger.info("Consumer group '%s' already exists.", CONSUMER_GROUP)
         else:
             raise
 
@@ -122,14 +122,17 @@ async def process_message_with_retry(redis_client: Redis, message_id, message_da
     """Process a message with a retry mechanism."""
     for attempt in range(MAX_RETRIES):
         try:
-            print(
-                f"Processing message {message_id}, attempt {attempt + 1}/{MAX_RETRIES}"
+            logger.info(
+                "Processing message %s, attempt %s/%s",
+                message_id,
+                attempt + 1,
+                MAX_RETRIES,
             )
             body_text = ""
             transcribed = "false"
 
             if message_data.get("mediaKey"):
-                print("🎤 Message has media, attempting transcription...")
+                logger.info("Message has media, attempting transcription...")
                 # Run blocking I/O in a thread pool
                 local_path = await asyncio.to_thread(
                     download_audio_from_r2_sync, message_data["mediaKey"]
@@ -140,7 +143,7 @@ async def process_message_with_retry(redis_client: Redis, message_id, message_da
                         transcribe_audio_sync, local_path
                     )
                     transcribed = "true"
-                    print(f"Transcription successful: '{body_text}'")
+                    logger.info("Transcription successful: '%s'", body_text)
                 else:
                     body_text = "[Error during audio download]"
                     raise Exception("Failed to download audio from R2")
@@ -156,16 +159,21 @@ async def process_message_with_retry(redis_client: Redis, message_id, message_da
             }
 
             await redis_client.xadd(STREAM_OUT, output_payload)
-            print(f"✅ Forwarded message for {message_data['userId']} to {STREAM_OUT}")
+            logger.info("Forwarded message for %s to %s", message_data['userId'], STREAM_OUT)
             return True
 
         except Exception as e:
-            print(
-                f"Error processing message {message_id} on attempt {attempt + 1}: {e}"
+            logger.error(
+                "Error processing message %s on attempt %s: %s",
+                message_id,
+                attempt + 1,
+                e,
             )
             if attempt + 1 == MAX_RETRIES:
-                print(
-                    f"Message {message_id} failed after {MAX_RETRIES} attempts. Moving to DLQ."
+                logger.error(
+                    "Message %s failed after %s attempts. Moving to DLQ.",
+                    message_id,
+                    MAX_RETRIES,
                 )
                 return False
             await asyncio.sleep(2**attempt)
@@ -177,13 +185,13 @@ async def main():
     # Initialize blocking clients in an executor to not block the event loop on startup
     await asyncio.to_thread(initialize_external_clients)
     if not s3_client or not whisper_model:
-        print("❌ Cannot start worker without external clients. Exiting.")
+        logger.error("Cannot start worker without external clients. Exiting.")
         return
 
     redis_client = Redis.from_url(REDIS_URL, decode_responses=True)
     await setup_redis(redis_client)
 
-    print("👂 Starting to listen for messages...")
+    logger.info("Starting to listen for messages...")
     while True:
         try:
             response = await redis_client.xreadgroup(
@@ -194,15 +202,16 @@ async def main():
 
             for stream, messages in response:
                 for message_id, message_data in messages:
-                    print(f"Received message {message_id}: {message_data}")
+                    logger.info("Received message %s: %s", message_id, message_data)
                     success = await process_message_with_retry(
                         redis_client, message_id, message_data
                     )
 
                     if success:
                         await redis_client.xack(STREAM_IN, CONSUMER_GROUP, message_id)
-                        print(
-                            f"Successfully processed and acknowledged message {message_id}"
+                        logger.info(
+                            "Successfully processed and acknowledged message %s",
+                            message_id,
                         )
                     else:
                         dlq_payload = message_data.copy()
@@ -210,12 +219,12 @@ async def main():
                         dlq_payload["error_timestamp"] = str(time.time())
                         await redis_client.xadd(DEAD_LETTER_QUEUE, dlq_payload)
                         await redis_client.xack(STREAM_IN, CONSUMER_GROUP, message_id)
-                        print(
-                            f"Moved message {message_id} to DLQ '{DEAD_LETTER_QUEUE}'"
+                        logger.error(
+                            "Moved message %s to DLQ '%s'", message_id, DEAD_LETTER_QUEUE
                         )
 
         except Exception as e:
-            print(f"A critical error occurred in main loop: {e}")
+            logger.error("A critical error occurred in main loop: %s", e)
             await asyncio.sleep(5)
 
 

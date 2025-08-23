@@ -45,20 +45,20 @@ _worker_task: Optional[asyncio.Task] = None
 async def lifespan(app: FastAPI):
     """Manage startup and shutdown events."""
     global _worker_stop_event, _worker_task
-    print("🚀 FastAPI startup…")
+    logger.info("🚀 FastAPI startup…")
 
     # Conectar a Redis
     app.state.redis = redis_from_url(REDIS_URL, decode_responses=True)
-    print("🔌 Redis client created.")
+    logger.info("🔌 Redis client created.")
 
     # Lanzar worker
     _worker_stop_event = asyncio.Event()
     _worker_task = asyncio.create_task(main_loop(app.state.redis, _worker_stop_event))
-    print("✅ Worker background task scheduled.")
+    logger.info("✅ Worker background task scheduled.")
 
     yield
 
-    print("🛑 FastAPI shutdown…")
+    logger.info("🛑 FastAPI shutdown…")
 
     # Detener worker
     if _worker_stop_event is not None:
@@ -70,12 +70,12 @@ async def lifespan(app: FastAPI):
             _worker_task.cancel()
             with contextlib.suppress(Exception):
                 await _worker_task
-    print("✅ Worker background task stopped.")
+    logger.info("✅ Worker background task stopped.")
 
     # Cerrar conexión Redis
     if hasattr(app.state, "redis") and app.state.redis:
         await app.state.redis.close()
-        print("🔌 Redis connection closed.")
+        logger.info("🔌 Redis connection closed.")
 
 
 app = FastAPI(title="Main API", version="1.0.0", lifespan=lifespan)
@@ -132,21 +132,21 @@ async def ensure_consumer_group(redis_client: Redis):
     try:
         await redis_client.ping()
     except Exception as e:
-        print(f"[ensure_consumer_group] Redis no disponible aún: {e}")
+        logger.error("[ensure_consumer_group] Redis no disponible aún: %s", e)
         return False
 
     try:
         await redis_client.xgroup_create(
             STREAM_IN, CONSUMER_GROUP, id="0", mkstream=True
         )
-        print(f"[ensure_consumer_group] Consumer group '{CONSUMER_GROUP}' creado.")
+        logger.info("[ensure_consumer_group] Consumer group '%s' creado.", CONSUMER_GROUP)
     except ResponseError as e:
         if "BUSYGROUP" in str(e):
-            print(
-                f"[ensure_consumer_group] Consumer group '{CONSUMER_GROUP}' ya existe."
+            logger.info(
+                "[ensure_consumer_group] Consumer group '%s' ya existe.", CONSUMER_GROUP
             )
         else:
-            print(f"[ensure_consumer_group] Error al crear grupo: {e}")
+            logger.error("[ensure_consumer_group] Error al crear grupo: %s", e)
             return False
     return True
 
@@ -155,14 +155,17 @@ async def process_message_with_retry(redis_client: Redis, message_id, message_da
     """Procesa un mensaje con reintentos exponenciales."""
     for attempt in range(MAX_RETRIES):
         try:
-            print(
-                f"Processing message {message_id}, attempt {attempt + 1}/{MAX_RETRIES}"
+            logger.info(
+                "Processing message %s, attempt %s/%s",
+                message_id,
+                attempt + 1,
+                MAX_RETRIES,
             )
             user_id = message_data.get("userId")
             query = message_data.get("body")
 
             if not user_id or not query:
-                print("Message missing userId or body, skipping.")
+                logger.warning("Message missing userId or body, skipping.")
                 return True  # reconocer y seguir
 
             bot_response_text = await process_chat_message_use_case.execute(
@@ -171,16 +174,21 @@ async def process_message_with_retry(redis_client: Redis, message_id, message_da
 
             output_payload = {"userId": user_id, "body": bot_response_text}
             await redis_client.xadd(STREAM_OUT, output_payload)
-            print(f"Published response for {user_id} to {STREAM_OUT}")
+            logger.info("Published response for %s to %s", user_id, STREAM_OUT)
             return True
 
         except Exception as e:
-            print(
-                f"Error processing message {message_id} on attempt {attempt + 1}: {e}"
+            logger.error(
+                "Error processing message %s on attempt %s: %s",
+                message_id,
+                attempt + 1,
+                e,
             )
             if attempt + 1 == MAX_RETRIES:
-                print(
-                    f"Message {message_id} failed after {MAX_RETRIES} attempts. Moving to DLQ."
+                logger.error(
+                    "Message %s failed after %s attempts. Moving to DLQ.",
+                    message_id,
+                    MAX_RETRIES,
                 )
                 return False
             await asyncio.sleep(2**attempt)  # backoff exponencial
@@ -189,11 +197,11 @@ async def process_message_with_retry(redis_client: Redis, message_id, message_da
 
 async def main_loop(redis_client: Redis, stop_event: asyncio.Event):
     """Bucle principal del worker (no bloquea el arranque HTTP)."""
-    print("👂 Starting to listen for messages...")
+    logger.info("👂 Starting to listen for messages...")
     while not stop_event.is_set():
         if await ensure_consumer_group(redis_client):
             break
-        print("[worker] Reintentando creación de consumer group en 2s…")
+        logger.info("[worker] Reintentando creación de consumer group en 2s…")
         await asyncio.sleep(2)
 
     while not stop_event.is_set():
@@ -206,15 +214,16 @@ async def main_loop(redis_client: Redis, stop_event: asyncio.Event):
 
             for stream, messages in response:
                 for message_id, message_data in messages:
-                    print(f"Received message {message_id}: {message_data}")
+                    logger.info("Received message %s: %s", message_id, message_data)
                     success = await process_message_with_retry(
                         redis_client, message_id, message_data
                     )
 
                     if success:
                         await redis_client.xack(STREAM_IN, CONSUMER_GROUP, message_id)
-                        print(
-                            f"Successfully processed and acknowledged message {message_id}"
+                        logger.info(
+                            "Successfully processed and acknowledged message %s",
+                            message_id,
                         )
                     else:
                         dlq_payload = message_data.copy()
@@ -222,11 +231,13 @@ async def main_loop(redis_client: Redis, stop_event: asyncio.Event):
                         dlq_payload["error_timestamp"] = time.time()
                         await redis_client.xadd(DEAD_LETTER_QUEUE, dlq_payload)
                         await redis_client.xack(STREAM_IN, CONSUMER_GROUP, message_id)
-                        print(
-                            f"Moved message {message_id} to DLQ '{DEAD_LETTER_QUEUE}'"
+                        logger.error(
+                            "Moved message %s to DLQ '%s'",
+                            message_id,
+                            DEAD_LETTER_QUEUE,
                         )
         except Exception as e:
-            print(f"[worker] Critical error in main loop: {e}")
+            logger.error("[worker] Critical error in main loop: %s", e)
             await asyncio.sleep(5)
 
 
@@ -247,7 +258,7 @@ async def health(request: Request):
     try:
         ok = await request.app.state.redis.ping()
     except Exception as e:
-        print(f"[health] Redis ping error: {e}")
+        logger.error("[health] Redis ping error: %s", e)
     return JSONResponse({"status": "ok", "redis": ok})
 
 

@@ -1,8 +1,11 @@
 import asyncio
+import logging
 from fastapi import APIRouter, Request, HTTPException
 from fastapi.responses import JSONResponse
 
 router = APIRouter()
+
+logger = logging.getLogger(__name__)
 
 @router.get("/onboarding/whatsapp-qr", tags=["Onboarding"])
 async def get_whatsapp_qr(request: Request):
@@ -20,7 +23,7 @@ async def get_whatsapp_qr(request: Request):
             # Return a specific status code that the frontend can handle gracefully.
             return JSONResponse(status_code=204, content={"detail": "QR code not available yet."})
     except Exception as e:
-        print(f"Error getting QR code from Redis: {e}")
+        logger.error("Error getting QR code from Redis: %s", e)
         raise HTTPException(status_code=500, detail="Internal server error while fetching QR code.")
 
 @router.get("/onboarding/status", tags=["Onboarding"])
@@ -33,7 +36,7 @@ async def get_onboarding_status(request: Request):
         status = await redis.get("whatsapp:status")
         return {"status": status or "disconnected"}
     except Exception as e:
-        print(f"Error getting status from Redis: {e}")
+        logger.error("Error getting status from Redis: %s", e)
         raise HTTPException(status_code=500, detail="Internal server error while fetching status.")
 
 # --- Mock Endpoints for Frontend Development ---
