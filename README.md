@@ -8,7 +8,7 @@ El sistema sigue una arquitectura de microservicios y está completamente orques
 
 -   **`frontend` (Next.js):** El panel de control orientado al usuario para gestionar agentes, ver conversaciones y configurar cuentas. Se sirve como un contenedor Docker.
 -   **`main-api` (Python/FastAPI):** El núcleo de la aplicación. Maneja toda la lógica de negocio, gestiona el enrutamiento de modelos de IA y sirve la API REST principal. Se comunica con otros servicios de forma asíncrona.
--   **`whatsapp-gateway` (Node.js):** El punto de entrada para todos los mensajes de usuario desde WhatsApp. Actúa como un puente, recibiendo mensajes, subiendo archivos multimedia y publicando eventos en un stream de Redis.
+-   **`whatsapp-gateway` (Node.js):** El punto de entrada para todos los mensajes de usuario desde WhatsApp. Actúa como un puente, recibiendo mensajes, subiendo archivos multimedia y publicando eventos en un stream de Redis. **Nota:** Este servicio utiliza la librería `whatsapp-web.js`, que no es una API oficial de WhatsApp. Su uso ha sido evaluado y aceptado como un riesgo de negocio para la fase actual del proyecto.
 -   **`transcription-worker` (Python):** Un trabajador dedicado que escucha los mensajes de audio en el stream de Redis, los transcribe usando un modelo local `faster-whisper` para garantizar la privacidad y un costo fijo, y publica el texto de vuelta para que `main-api` lo procese.
 -   **`traefik` (Traefik):** Un proxy inverso que enruta el tráfico entrante al servicio apropiado (`frontend` o `main-api`) y maneja la terminación SSL con certificados auto-renovables de Let's Encrypt.
 -   **`redis` (Redis):** Utilizado como un message broker de alto rendimiento (a través de Redis Streams) para facilitar la comunicación asíncrona entre los microservicios.
@@ -115,3 +115,37 @@ Para que la automatización funcione, debe configurar los siguientes secrets en 
 -   Todos los demás secrets requeridos por la aplicación (por ejemplo, `SUPABASE_URL`, `GOOGLE_API_KEY`, etc.).
 
 Con esta configuración, su infraestructura está totalmente automatizada. Simplemente haga push a `main`, y sus cambios serán probados y desplegados.
+
+---
+
+## 💾 Backups y Recuperación
+
+Una estrategia de backups robusta es crítica para la resiliencia de la plataforma. A continuación se describe el plan de backups para los dos componentes con estado del sistema: la base de datos de Supabase y los volúmenes de Docker.
+
+### 1. Base de Datos (Supabase)
+
+Supabase proporciona backups automáticos diarios en sus planes de pago.
+
+-   **Acción Requerida:**
+    1.  Asegúrese de que su proyecto de Supabase está en un plan que incluya backups automáticos.
+    2.  Vaya al **Dashboard de su proyecto > Database > Backups**.
+    3.  Verifique que los backups diarios están activados.
+    4.  Familiarícese con el proceso de "Point-in-Time Recovery (PITR)" que ofrece Supabase para restaurar la base de datos a un punto específico en el tiempo.
+
+### 2. Volúmenes de Docker (Redis y Sesión de WhatsApp)
+
+Los datos de la sesión de WhatsApp y los datos de Redis (si la persistencia está habilitada) se guardan en volúmenes de Docker en el servidor host.
+
+-   **Acción Requerida:**
+    1.  Se ha incluido un script `backup.sh` en la raíz del proyecto para automatizar el backup de estos volúmenes.
+    2.  **Configurar el script:** Antes de usarlo, edite las variables en la sección de configuración del script si es necesario (ej. `PROJECT_NAME`).
+    3.  **Automatizar con Cron:** Configure un cronjob en el servidor de producción para que ejecute este script diariamente.
+
+    **Ejemplo de Cronjob (ejecutar a las 3:00 AM todos los días):**
+    1.  Abra el editor de crontab: `crontab -e`
+    2.  Añada la siguiente línea, asegurándose de usar la ruta absoluta a su script:
+        ```cron
+        0 3 * * * /path/to/your/project/backup.sh >> /var/log/eva_backup.log 2>&1
+        ```
+
+    El script se encarga de detener los servicios necesarios, crear un archivo `.tar.gz` comprimido de los volúmenes, y reiniciar los servicios. También incluye una lógica opcional para subir los backups a Cloudflare R2 y para limpiar backups locales antiguos.
