@@ -9,7 +9,7 @@ import {
   getWhatsappQrCode,
   OnboardingStatus,
   QrCodeResponse,
-} from '../../../../services/api';
+} from '@/services/api';
 
 // --- Child Components ---
 const StepButton = ({ step, currentStep, setStep, disabled }) => (
