@@ -1,18 +1,36 @@
+import os
+
 from fastapi import HTTPException, Request
-from app.infrastructure.supabase_adapter import SupabaseAdapter
-from app.infrastructure.gemini_adapter import GeminiAdapter
+
+from app.core.ai_router import AIRouter
 from app.core.use_cases.process_chat_message import ProcessChatMessage
+from app.infrastructure.deepseek_adapter import DeepSeekV2Adapter, DeepSeekChatAdapter
+from app.infrastructure.gemini_adapter import GeminiAdapter
+from app.infrastructure.openai_adapter import OpenAIEmbeddingAdapter
+from app.infrastructure.supabase_adapter import SupabaseAdapter
 
 # Create singleton instances of our adapters
 supabase_adapter = SupabaseAdapter()
 gemini_adapter = GeminiAdapter()
+deepseek_v2_adapter = DeepSeekV2Adapter(api_key=os.getenv("DEEPSEEK_API_KEY"))
+deepseek_chat_adapter = DeepSeekChatAdapter(api_key=os.getenv("DEEPSEEK_API_KEY"))
+openai_embedding_adapter = OpenAIEmbeddingAdapter(
+    api_key=os.getenv("OPENAI_API_KEY"),
+    supabase_adapter=supabase_adapter,
+    gemini_adapter=gemini_adapter,
+)
+
+ai_router = AIRouter(
+    gemini_adapter=gemini_adapter,
+    deepseek_v2_adapter=deepseek_v2_adapter,
+    deepseek_chat_adapter=deepseek_chat_adapter,
+    openai_embedding_adapter=openai_embedding_adapter,
+)
 
 
 def get_process_chat_message_use_case() -> ProcessChatMessage:
-    """
-    Dependency injector for the ProcessChatMessage use case.
-    """
-    return ProcessChatMessage(supabase_adapter, gemini_adapter)
+    """Dependency injector for the ProcessChatMessage use case."""
+    return ProcessChatMessage(router=ai_router, db_adapter=supabase_adapter)
 
 
 def get_current_user_id(request: Request) -> str:

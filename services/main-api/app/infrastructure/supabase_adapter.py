@@ -183,15 +183,6 @@ class SupabaseAdapter:
             logger.error("Error logging conversation to Supabase: %s", e)
             return None
 
-    def get_embeddings(self, text: str):
-        """
-        Placeholder for getting embeddings. This might be done via a different service
-        or a Supabase edge function.
-        """
-        # In a real scenario, this might call a Supabase edge function
-        # or another embedding service.
-        pass
-
     async def find_relevant_chunks(
         self, user_id: str, query_embedding: list[float], match_threshold: float = 0.5, match_count: int = 5
     ):

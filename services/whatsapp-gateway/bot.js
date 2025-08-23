@@ -38,7 +38,7 @@ async function connectRedis(retry = 0) {
     }
 }
 
-connectRedis();
+connectRedis().catch(console.error);
 
 // S3 Client for R2
 const s3Client = new S3Client({

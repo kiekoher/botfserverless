@@ -1,5 +1,6 @@
 import os
 import asyncio
+import json
 import logging
 
 import google.generativeai as genai
@@ -34,19 +35,24 @@ class GeminiAdapter:
             return None
 
     async def classify_and_extract(self, query: str) -> dict:
-        """
-        Classifies the user's intent and extracts information using a Gemini function call.
-        This is a simplified version of the logic from the original bot.
-        In a real scenario, this would be more robust.
-        """
-        # This is a placeholder for the classification logic.
-        # A real implementation would use a more sophisticated prompt and function calling.
-        if "servicio" in query.lower():
-            return {"decision": "use_tool", "tool_call": {"name": "get_service_info"}}
-        if "agendar" in query.lower() or "reunión" in query.lower():
-            return {"decision": "use_tool", "tool_call": {"name": "schedule_meeting"}}
-
-        return {"decision": "use_rag", "summary_for_rag": query}
+        """Use Gemini to classify intent and extract tool calls."""
+        prompt = (
+            "You are an intent classifier for a sales assistant. "
+            "Respond with a JSON object containing either:\n"
+            "  - decision: 'use_rag' and summary_for_rag\n"
+            "  - decision: 'use_tool' and tool_call {name}\n"
+            "Supported tools: 'get_service_info', 'schedule_meeting'.\n"
+            f"User query: {query}"
+        )
+        try:
+            response = await asyncio.to_thread(
+                self.generative_model.generate_content, prompt
+            )
+            data = json.loads(response.text)
+            return data
+        except Exception as e:
+            logger.error("Error classifying query: %s", e)
+            return {"decision": "use_rag", "summary_for_rag": query}
 
     async def generate_rag_response(
         self, query: str, context: list, history: list
