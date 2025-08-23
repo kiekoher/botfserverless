@@ -11,6 +11,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    networks:
+      - eva-net
 
   traefik:
     image: traefik:v2.11
@@ -41,6 +43,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    networks:
+      - eva-net
 
   main-api:
     build:
@@ -61,7 +65,7 @@ services:
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - OPENAI_EMBED_MODEL=${OPENAI_EMBED_MODEL}
-      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_HOST=redis
       - FRONTEND_ORIGINS=${FRONTEND_ORIGINS}
     depends_on:
       - redis
@@ -82,6 +86,8 @@ services:
       - "traefik.http.routers.main-api.entrypoints=websecure"
       - "traefik.http.routers.main-api.tls.certresolver=myresolver"
       - "traefik.http.services.main-api.loadbalancer.server.port=8000"
+    networks:
+      - eva-net
 
   whatsapp-gateway:
     build:
@@ -99,7 +105,7 @@ services:
       - R2_BUCKET_NAME=${R2_BUCKET_NAME}
       - R2_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID}
       - R2_SECRET_ACCESS_KEY=${R2_SECRET_ACCESS_KEY}
-      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_HOST=redis
       - WHATSAPP_USER_ID=${WHATSAPP_USER_ID}
     volumes:
       - whatsapp_session_prod:/app/session
@@ -115,6 +121,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    networks:
+      - eva-net
 
   transcription-worker:
     build:
@@ -132,7 +140,7 @@ services:
       - R2_BUCKET_NAME=${R2_BUCKET_NAME}
       - R2_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID}
       - R2_SECRET_ACCESS_KEY=${R2_SECRET_ACCESS_KEY}
-      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_HOST=redis
     depends_on:
       - redis
     healthcheck:
@@ -145,6 +153,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    networks:
+      - eva-net
 
   embedding-worker:
     build:
@@ -162,9 +172,9 @@ services:
       - R2_BUCKET_NAME=${R2_BUCKET_NAME}
       - R2_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID}
       - R2_SECRET_ACCESS_KEY=${R2_SECRET_ACCESS_KEY}
-      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_HOST=redis
       - SUPABASE_URL=${SUPABASE_URL}
-      - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}
+      - SUPABASE_KEY=${SUPABASE_KEY}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - OPENAI_EMBED_MODEL=${OPENAI_EMBED_MODEL}
     depends_on:
@@ -179,6 +189,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    networks:
+      - eva-net
 
   dlq-monitor:
     build:
@@ -192,7 +204,7 @@ services:
           cpus: '0.25'
           memory: 256M
     environment:
-      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_HOST=redis
     depends_on:
       - redis
     healthcheck:
@@ -205,6 +217,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    networks:
+      - eva-net
 
   frontend:
     build:
@@ -239,20 +253,26 @@ services:
       - "traefik.http.routers.frontend.entrypoints=websecure"
       - "traefik.http.routers.frontend.tls.certresolver=myresolver"
       - "traefik.http.services.frontend.loadbalancer.server.port=3000"
+    networks:
+      - eva-net
 
   loki:
     image: grafana/loki:2.9.0
     container_name: eva_loki_prod
+    restart: unless-stopped
     command: -config.file=/etc/loki/local-config.yaml
     logging:
       driver: json-file
       options:
         max-size: "10m"
         max-file: "3"
+    networks:
+      - eva-net
 
   promtail:
     image: grafana/promtail:2.9.0
     container_name: eva_promtail_prod
+    restart: unless-stopped
     volumes:
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - ./promtail/promtail.yml:/etc/promtail/config.yml
@@ -264,6 +284,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    networks:
+      - eva-net
 
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:v0.47.2
@@ -274,13 +296,13 @@ services:
       - /var/run:/var/run:rw
       - /sys:/sys:ro
       - /var/lib/docker/:/var/lib/docker:ro
-    ports:
-      - "8080:8080" # Optional: for cAdvisor UI
     logging:
       driver: json-file
       options:
         max-size: "10m"
         max-file: "3"
+    networks:
+      - eva-net
 
   prometheus:
     image: prom/prometheus:v2.47.2
@@ -295,13 +317,13 @@ services:
       - '--storage.tsdb.path=/prometheus'
       - '--web.console.libraries=/usr/share/prometheus/console_libraries'
       - '--web.console.templates=/usr/share/prometheus/consoles'
-    ports:
-      - "9090:9090"
     logging:
       driver: json-file
       options:
         max-size: "10m"
         max-file: "3"
+    networks:
+      - eva-net
 
   alertmanager:
     image: prom/alertmanager:v0.25.0
@@ -313,13 +335,13 @@ services:
     command:
       - '--config.file=/etc/alertmanager/config.yml'
       - '--storage.path=/alertmanager'
-    ports:
-      - "9093:9093"
     logging:
       driver: json-file
       options:
         max-size: "10m"
         max-file: "3"
+    networks:
+      - eva-net
 
   grafana:
     image: grafana/grafana-oss:10.1.5
@@ -330,10 +352,8 @@ services:
       - grafana_data:/var/lib/grafana
     environment:
       - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=grafana # IMPORTANT: Change this in production
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
       - GF_USERS_ALLOW_SIGN_UP=false
-    ports:
-      - "3000:3000"
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.grafana.rule=Host(`${DOMAIN_NAME}`) && PathPrefix(`/grafana`)"
@@ -345,6 +365,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    networks:
+      - eva-net
 
 volumes:
   redis_data:
@@ -353,3 +375,7 @@ volumes:
   prometheus_data:
   alertmanager_data:
   grafana_data:
+
+networks:
+  eva-net:
+    driver: bridge
