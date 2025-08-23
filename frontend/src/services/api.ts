@@ -7,8 +7,10 @@ const supabase = createBrowserClient(
 )
 
 // Define the base URL for our main API
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || 'http://localhost/api/v1';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+if (!API_BASE_URL) {
+  throw new Error('NEXT_PUBLIC_API_URL is required');
+}
 
 // --- Helper function to get the auth token ---
 async function getAuthToken() {
@@ -24,24 +26,33 @@ async function getAuthToken() {
 /**
  * A generic fetch function with authentication
  */
-async function fetchFromApi(path: string, options: RequestInit = {}) {
+async function fetchFromApi(path: string, options: RequestInit = {}, retry = true) {
   const token = await getAuthToken();
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...options,
-    headers: {
-      ...options.headers,
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
+  try {
+    const response = await fetch(`${API_BASE_URL}${path}`, {
+      ...options,
+      headers: {
+        ...options.headers,
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    if (response.status === 401 && retry) {
+      await supabase.auth.refreshSession();
+      return fetchFromApi(path, options, false);
     }
-  });
 
-  if (!response.ok) {
-    // A more robust error handling would be better here
-    const errorData = await response.json().catch(() => ({ message: response.statusText }));
-    throw new Error(errorData.message || 'An unknown error occurred');
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: response.statusText }));
+      throw new Error(errorData.message || 'An unknown error occurred');
+    }
+
+    return response.json();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Network error';
+    throw new Error(message);
   }
-
-  return response.json();
 }
 
 // --- Agent-related API functions ---
@@ -137,21 +148,20 @@ export interface QrCodeResponse {
 }
 
 export const getOnboardingStatus = async (): Promise<OnboardingStatus> => {
-    // This fetch call is different from the generic one because it doesn't require authentication
-    const response = await fetch('/api/v1/onboarding/status');
-    if (!response.ok) {
-        throw new Error('Failed to fetch onboarding status');
-    }
-    return response.json();
+  const response = await fetch(`${API_BASE_URL}/onboarding/status`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch onboarding status');
+  }
+  return response.json();
 };
 
 export const getWhatsappQrCode = async (): Promise<QrCodeResponse | null> => {
-    const response = await fetch('/api/v1/onboarding/whatsapp-qr');
-    if (response.status === 204) {
-        return null; // No QR code available yet
-    }
-    if (!response.ok) {
-        throw new Error('Failed to fetch QR code');
-    }
-    return response.json();
+  const response = await fetch(`${API_BASE_URL}/onboarding/whatsapp-qr`);
+  if (response.status === 204) {
+    return null;
+  }
+  if (!response.ok) {
+    throw new Error('Failed to fetch QR code');
+  }
+  return response.json();
 }
