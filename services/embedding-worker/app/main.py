@@ -2,7 +2,7 @@ import os
 import time
 import redis
 import boto3
-import openai
+from openai import OpenAI, RateLimitError
 import tiktoken
 import io
 import logging
@@ -22,11 +22,11 @@ CONSUMER_GROUP = "group:embedding-worker"
 CONSUMER_NAME = "consumer:embedding-worker-1"
 redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
 
-# Supabase (using Service Role Key to bypass RLS)
+# Supabase client (use restricted key for embeddings)
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
-SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY")
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
-logger.info("🔌 Supabase client created with service role.")
+SUPABASE_EMBEDDING_KEY = os.environ.get("SUPABASE_EMBEDDING_KEY")
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_EMBEDDING_KEY)
+logger.info("🔌 Supabase client created with limited permissions.")
 
 # R2/S3
 R2_ENDPOINT_URL = os.environ.get("R2_ENDPOINT_URL")
@@ -36,7 +36,7 @@ R2_BUCKET_NAME = os.environ.get("R2_BUCKET_NAME")
 s3_client = boto3.client('s3', endpoint_url=R2_ENDPOINT_URL, aws_access_key_id=R2_ACCESS_KEY_ID, aws_secret_access_key=R2_SECRET_ACCESS_KEY)
 
 # OpenAI
-openai.api_key = os.environ.get("OPENAI_API_KEY")
+client = OpenAI()
 EMBEDDING_MODEL = "text-embedding-3-large"
 
 # Tiktoken for chunking
@@ -86,8 +86,17 @@ def chunk_text(text: str) -> list[str]:
     return chunks
 
 def get_embeddings(texts: list[str]) -> list[list[float]]:
-    response = openai.embeddings.create(input=texts, model=EMBEDDING_MODEL)
-    return [item.embedding for item in response.data]
+    try:
+        response = client.embeddings.create(model=EMBEDDING_MODEL, input=texts)
+        return [item.embedding for item in response.data]
+    except RateLimitError as e:
+        logger.error("Rate limit hit while requesting embeddings: %s", e)
+        time.sleep(5)
+        response = client.embeddings.create(model=EMBEDDING_MODEL, input=texts)
+        return [item.embedding for item in response.data]
+    except Exception as e:
+        logger.error("OpenAI embedding error: %s", e)
+        raise
 
 # --- Main Worker Loop ---
 

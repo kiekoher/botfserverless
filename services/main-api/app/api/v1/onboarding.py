@@ -1,14 +1,15 @@
 import asyncio
 import logging
-from fastapi import APIRouter, Request, HTTPException
+from fastapi import APIRouter, Request, HTTPException, Depends
 from fastapi.responses import JSONResponse
+from app.dependencies import get_current_user_id
 
 router = APIRouter()
 
 logger = logging.getLogger(__name__)
 
 @router.get("/onboarding/whatsapp-qr", tags=["Onboarding"])
-async def get_whatsapp_qr(request: Request):
+async def get_whatsapp_qr(request: Request, user_id: str = Depends(get_current_user_id)):
     """
     Retrieves the WhatsApp QR code from Redis.
     The frontend should poll this endpoint until the QR code is available.
@@ -27,7 +28,7 @@ async def get_whatsapp_qr(request: Request):
         raise HTTPException(status_code=500, detail="Internal server error while fetching QR code.")
 
 @router.get("/onboarding/status", tags=["Onboarding"])
-async def get_onboarding_status(request: Request):
+async def get_onboarding_status(request: Request, user_id: str = Depends(get_current_user_id)):
     """
     Retrieves the current WhatsApp connection status from Redis.
     """

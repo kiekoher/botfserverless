@@ -173,7 +173,7 @@ async def process_message_with_retry(redis_client: Redis, message_id, message_da
             )
 
             output_payload = {"userId": user_id, "body": bot_response_text}
-            await redis_client.xadd(STREAM_OUT, output_payload)
+            await redis_client.xadd(STREAM_OUT, output_payload, maxlen=10000, approximate=True)
             logger.info("Published response for %s to %s", user_id, STREAM_OUT)
             return True
 
@@ -229,7 +229,7 @@ async def main_loop(redis_client: Redis, stop_event: asyncio.Event):
                         dlq_payload = message_data.copy()
                         dlq_payload["error_service"] = "main-api"
                         dlq_payload["error_timestamp"] = time.time()
-                        await redis_client.xadd(DEAD_LETTER_QUEUE, dlq_payload)
+                        await redis_client.xadd(DEAD_LETTER_QUEUE, dlq_payload, maxlen=10000, approximate=True)
                         await redis_client.xack(STREAM_IN, CONSUMER_GROUP, message_id)
                         logger.error(
                             "Moved message %s to DLQ '%s'",

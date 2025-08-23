@@ -3,7 +3,6 @@ import pytest
 from unittest.mock import MagicMock, AsyncMock, patch
 
 # --- Add app directory to path to allow for imports ---
-import sys
 import os
 import importlib.util
 

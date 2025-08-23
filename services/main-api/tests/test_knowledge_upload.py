@@ -34,8 +34,8 @@ def _setup_state(supabase_adapter, redis_client):
 
 def test_cleanup_when_document_creation_fails(client, mocker):
     supabase = MagicMock()
-    supabase.get_agent_for_user.return_value = {"id": "agent1"}
-    supabase.create_document_record.return_value = None
+    supabase.get_agent_for_user = AsyncMock(return_value={"id": "agent1"})
+    supabase.create_document_record = AsyncMock(return_value=None)
     redis_client = AsyncMock()
     _setup_state(supabase, redis_client)
 
@@ -53,9 +53,9 @@ def test_cleanup_when_document_creation_fails(client, mocker):
 
 def test_cleanup_when_redis_publish_fails(client, mocker):
     supabase = MagicMock()
-    supabase.get_agent_for_user.return_value = {"id": "agent1"}
-    supabase.create_document_record.return_value = {"id": "doc1"}
-    supabase.delete_document.return_value = True
+    supabase.get_agent_for_user = AsyncMock(return_value={"id": "agent1"})
+    supabase.create_document_record = AsyncMock(return_value={"id": "doc1"})
+    supabase.delete_document = AsyncMock(return_value=True)
     redis_client = AsyncMock()
     redis_client.xadd.side_effect = Exception("boom")
     _setup_state(supabase, redis_client)

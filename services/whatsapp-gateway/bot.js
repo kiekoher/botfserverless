@@ -163,7 +163,12 @@ client.on('message', async message => {
         }
 
         // Publish to Redis Stream
-        await redisClient.xAdd(STREAM_IN, '*', messagePayload);
+        await redisClient.xAdd(
+            STREAM_IN,
+            '*',
+            messagePayload,
+            { TRIM: { strategy: 'MAXLEN', strategyModifier: '~', threshold: 10000 } }
+        );
         console.log(`✅ Message from ${userId} published to stream '${STREAM_IN}'.`);
 
         chat.sendStateTyping();

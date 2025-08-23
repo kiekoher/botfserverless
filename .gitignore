@@ -12,6 +12,8 @@ __pycache__/
 node_modules/
 npm-debug.log
 yarn-error.log
+docker-compose-build.log
+.next/
 
 # Docker
 !/data/

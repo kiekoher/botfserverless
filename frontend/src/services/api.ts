@@ -43,6 +43,10 @@ async function fetchFromApi(path: string, options: RequestInit = {}, retry = tru
       return fetchFromApi(path, options, false);
     }
 
+    if (response.status === 204) {
+      return null;
+    }
+
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({ message: response.statusText }));
       throw new Error(errorData.message || 'An unknown error occurred');
@@ -67,17 +71,8 @@ export const getAgents = async (): Promise<Agent[]> => {
   return fetchFromApi('/agents');
 };
 
-export const getAgentById = async (agentId: string) => {
-  return fetchFromApi(`/agents/${agentId}`);
-};
-
-export interface CreateAgentPayload {
-    name: string;
-    // Add other fields for agent creation here
-}
-
-export const createAgent = async (payload: CreateAgentPayload) => {
-  return fetchFromApi('/agents', {
+export const createAgent = async (payload: AgentConfig) => {
+  return fetchFromApi('/agents/me', {
     method: 'POST',
     body: JSON.stringify(payload)
   });
@@ -148,20 +143,9 @@ export interface QrCodeResponse {
 }
 
 export const getOnboardingStatus = async (): Promise<OnboardingStatus> => {
-  const response = await fetch(`${API_BASE_URL}/onboarding/status`);
-  if (!response.ok) {
-    throw new Error('Failed to fetch onboarding status');
-  }
-  return response.json();
+  return fetchFromApi('/onboarding/status');
 };
 
 export const getWhatsappQrCode = async (): Promise<QrCodeResponse | null> => {
-  const response = await fetch(`${API_BASE_URL}/onboarding/whatsapp-qr`);
-  if (response.status === 204) {
-    return null;
-  }
-  if (!response.ok) {
-    throw new Error('Failed to fetch QR code');
-  }
-  return response.json();
-}
+  return fetchFromApi('/onboarding/whatsapp-qr');
+};
