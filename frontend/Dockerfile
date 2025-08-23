@@ -8,8 +8,8 @@ WORKDIR /app
 # Copy package.json and package-lock.json
 COPY package*.json ./
 
-# Use npm ci for deterministic builds and install only production deps
-RUN npm ci --only=production
+# Use npm ci for deterministic builds (includes dev deps for build)
+RUN npm ci
 
 # Copy the rest of the application source code
 COPY . .
@@ -24,7 +24,7 @@ ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
 
 # Build the application
 # The `output: 'standalone'` in next.config.js will create a .next/standalone folder
-RUN npm run build
+RUN npm run build && npm prune --production
 
 # Stage 2: Production image - using the standalone output
 # Use the same Node.js version for consistency

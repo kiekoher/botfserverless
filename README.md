@@ -39,6 +39,7 @@ Estas variables controlan:
 - `GEMINI_EMBED_MODEL`: modelo utilizado para generar embeddings.
 - `GEMINI_CHAT_MODEL`: modelo utilizado para respuestas conversacionales.
 - `NEXT_PUBLIC_API_URL`: URL base de la API (por ejemplo `http://main-api:8000/api/v1`).
+- `OPENAI_EMBED_MODEL`: modelo de embeddings usado por los servicios que consumen OpenAI (por defecto `text-embedding-3-large`).
 
 ### 3. Ejecutando el Sistema Localmente
 
