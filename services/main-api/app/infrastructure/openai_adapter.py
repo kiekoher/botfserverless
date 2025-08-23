@@ -65,7 +65,7 @@ class OpenAIEmbeddingAdapter:
         # 2. Use the embedding to search for similar documents in Supabase
         logger.info("Step 2: Searching for relevant documents in Supabase...")
         try:
-            relevant_docs = self.supabase_adapter.find_relevant_chunks(
+            relevant_docs = await self.supabase_adapter.find_relevant_chunks(
                 user_id, query_embedding
             )
             if not relevant_docs:

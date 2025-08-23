@@ -13,11 +13,14 @@ from fastapi.responses import JSONResponse
 
 # === Imports del proyecto ===
 from app.core.use_cases.process_chat_message import ProcessChatMessage
-from app.infrastructure.gemini_adapter import GeminiAdapter
-from app.infrastructure.supabase_adapter import SupabaseAdapter
-from app.core.ai_router import AIRouter
-from app.infrastructure.deepseek_adapter import DeepSeekV2Adapter, DeepSeekChatAdapter
-from app.infrastructure.openai_adapter import OpenAIEmbeddingAdapter
+from app.dependencies import (
+    supabase_adapter,
+    gemini_adapter,
+    deepseek_v2_adapter,
+    deepseek_chat_adapter,
+    openai_embedding_adapter,
+    ai_router,
+)
 from app.api.v1 import onboarding, agents, knowledge
 
 # --------------------------
@@ -87,27 +90,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 logger.info("🤖 Main API starting...")
-
-logger.info("🔌 Initializing adapters...")
-supabase_adapter = SupabaseAdapter()
-gemini_adapter = GeminiAdapter()
-deepseek_v2_adapter = DeepSeekV2Adapter(api_key=os.getenv("DEEPSEEK_API_KEY"))
-deepseek_chat_adapter = DeepSeekChatAdapter(api_key=os.getenv("DEEPSEEK_API_KEY"))
-openai_embedding_adapter = OpenAIEmbeddingAdapter(
-    api_key=os.getenv("OPENAI_API_KEY"),
-    supabase_adapter=supabase_adapter,
-    gemini_adapter=gemini_adapter
-)
-logger.info("✅ Adapters initialized.")
-
-logger.info("🧠 Initializing AI Router...")
-ai_router = AIRouter(
-    gemini_adapter=gemini_adapter,
-    deepseek_v2_adapter=deepseek_v2_adapter,
-    deepseek_chat_adapter=deepseek_chat_adapter,
-    openai_embedding_adapter=openai_embedding_adapter,
-)
-logger.info("✅ AI Router initialized.")
+logger.info("🔌 Using shared adapters from dependencies.")
 
 # Store adapters in application state for reuse across endpoints
 app.state.supabase_adapter = supabase_adapter

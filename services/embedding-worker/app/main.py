@@ -22,10 +22,10 @@ CONSUMER_GROUP = "group:embedding-worker"
 CONSUMER_NAME = "consumer:embedding-worker-1"
 redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
 
-# Supabase client (use restricted key for embeddings)
+# Supabase client (use restricted service key for embeddings)
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
-SUPABASE_EMBEDDING_KEY = os.environ.get("SUPABASE_EMBEDDING_KEY")
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_EMBEDDING_KEY)
+SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY")
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 logger.info("🔌 Supabase client created with limited permissions.")
 
 # R2/S3
