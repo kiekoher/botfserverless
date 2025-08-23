@@ -19,7 +19,7 @@ REDIS_HOST = os.environ.get("REDIS_HOST", "redis")
 REDIS_PORT = int(os.environ.get("REDIS_PORT", 6379))
 STREAM_IN = "events:new_document"
 CONSUMER_GROUP = "group:embedding-worker"
-CONSUMER_NAME = "consumer:embedding-worker-1"
+CONSUMER_NAME = f"consumer:embedding-worker-{os.getenv('HOSTNAME', '1')}"
 redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
 
 # Supabase client (use restricted service key for embeddings)
@@ -85,18 +85,26 @@ def chunk_text(text: str) -> list[str]:
     logger.info("Split text into %d chunks.", len(chunks))
     return chunks
 
-def get_embeddings(texts: list[str]) -> list[list[float]]:
-    try:
-        response = client.embeddings.create(model=EMBEDDING_MODEL, input=texts)
-        return [item.embedding for item in response.data]
-    except RateLimitError as e:
-        logger.error("Rate limit hit while requesting embeddings: %s", e)
-        time.sleep(5)
-        response = client.embeddings.create(model=EMBEDDING_MODEL, input=texts)
-        return [item.embedding for item in response.data]
-    except Exception as e:
-        logger.error("OpenAI embedding error: %s", e)
-        raise
+def get_embeddings(texts: list[str], max_retries: int = 3) -> list[list[float]]:
+    delay = 5
+    for attempt in range(max_retries):
+        try:
+            response = client.embeddings.create(model=EMBEDDING_MODEL, input=texts)
+            return [item.embedding for item in response.data]
+        except RateLimitError as e:
+            logger.warning(
+                "Rate limit hit while requesting embeddings (attempt %s/%s): %s",
+                attempt + 1,
+                max_retries,
+                e,
+            )
+            if attempt + 1 == max_retries:
+                raise
+            time.sleep(delay)
+            delay *= 2
+        except Exception as e:
+            logger.error("OpenAI embedding error: %s", e)
+            raise
 
 # --- Main Worker Loop ---
 

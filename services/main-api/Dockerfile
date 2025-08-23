@@ -19,17 +19,21 @@ RUN apt-get update && apt-get install -y curl procps netcat-openbsd && rm -rf /v
 # Copia el entorno virtual del builder
 COPY --from=builder /opt/venv /opt/venv
 
+RUN useradd -ms /bin/bash appuser
+
 # Copia el código de la aplicación a la carpeta /code/app
-COPY ./app /code/app
+COPY --chown=appuser:appuser ./app /code/app
 
 # Copia el código de las pruebas
-COPY ./tests /code/tests
+COPY --chown=appuser:appuser ./tests /code/tests
 
 # Activa el entorno virtual
 ENV PATH="/opt/venv/bin:$PATH"
 
 # Añade el directorio /code al PYTHONPATH para que Python encuentre el paquete 'app'
 ENV PYTHONPATH=/code
+
+USER appuser
 
 # Ejecuta el script como un módulo desde la raíz del código
 CMD ["python", "-m", "app.main"]

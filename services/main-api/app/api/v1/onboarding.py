@@ -15,7 +15,7 @@ async def get_whatsapp_qr(request: Request, user_id: str = Depends(get_current_u
     """
     try:
         redis = request.app.state.redis
-        qr_code = await redis.get("whatsapp:qr_code")
+        qr_code = await redis.get(f"whatsapp:{user_id}:qr_code")
         if qr_code:
             return {"qr_code": qr_code}
         else:
@@ -33,7 +33,7 @@ async def get_onboarding_status(request: Request, user_id: str = Depends(get_cur
     """
     try:
         redis = request.app.state.redis
-        status = await redis.get("whatsapp:status")
+        status = await redis.get(f"whatsapp:{user_id}:status")
         return {"status": status or "disconnected"}
     except Exception as e:
         logger.error("Error getting status from Redis: %s", e)

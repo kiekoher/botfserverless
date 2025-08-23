@@ -7,6 +7,9 @@ from contextlib import asynccontextmanager
 from redis.asyncio import Redis, from_url as redis_from_url
 from redis.exceptions import ResponseError
 from typing import Optional
+from collections import defaultdict
+
+from fastapi.middleware.cors import CORSMiddleware
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
@@ -32,10 +35,11 @@ REDIS_URL = f"redis://{REDIS_HOST}:{REDIS_PORT}"
 STREAM_IN = "events:transcribed_message"
 STREAM_OUT = "events:message_out"
 CONSUMER_GROUP = "group:main-api"
-CONSUMER_NAME = "consumer:main-api-1"
+CONSUMER_NAME = f"consumer:main-api-{os.getenv('HOSTNAME', '1')}"
 
 DEAD_LETTER_QUEUE = "events:dead_letter_queue"
 MAX_RETRIES = 3
+RATE_LIMIT = int(os.getenv("API_RATE_LIMIT", "60"))
 
 # --------------------------
 #      FastAPI App
@@ -82,6 +86,30 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Main API", version="1.0.0", lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[os.getenv("FRONTEND_ORIGIN", "*")],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+request_counts = defaultdict(lambda: (0, time.time()))
+
+
+@app.middleware("http")
+async def rate_limit_middleware(request: Request, call_next):
+    ip = request.client.host
+    count, start = request_counts[ip]
+    now = time.time()
+    if now - start >= 60:
+        request_counts[ip] = (1, now)
+    else:
+        if count >= RATE_LIMIT:
+            return JSONResponse(status_code=429, content={"detail": "Too Many Requests"})
+        request_counts[ip] = (count + 1, start)
+    return await call_next(request)
 
 # --------------------------
 #   Inicialización de deps

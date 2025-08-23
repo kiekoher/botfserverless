@@ -27,7 +27,7 @@ s3_client = boto3.client(
 )
 
 REDIS_DOCUMENT_STREAM = "events:new_document"
-ALLOWED_CONTENT_TYPES = {"application/pdf", "text/plain"}
+ALLOWED_CONTENT_TYPES = {"application/pdf", "text/plain", "text/markdown"}
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 
 @router.get("/knowledge/documents", tags=["Knowledge"])

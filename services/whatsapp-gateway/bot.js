@@ -4,13 +4,16 @@ const qrcode = require('qrcode-terminal');
 const { createClient } = require('redis');
 const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
 const { v4: uuidv4 } = require('uuid');
+const os = require('os');
+const { qrKey, statusKey } = require('./keys');
 
 // --- Configuration ---
 const REDIS_HOST = process.env.REDIS_HOST || 'redis';
 const STREAM_IN = 'events:new_message';
 const STREAM_OUT = 'events:message_out';
 const CONSUMER_GROUP = 'group:whatsapp-gateway';
-const CONSUMER_NAME = 'consumer:whatsapp-gateway-1';
+const CONSUMER_NAME = `consumer:whatsapp-gateway-${os.hostname()}`;
+const USER_ID = process.env.WHATSAPP_USER_ID || 'default';
 
 // R2 Configuration
 const R2_ENDPOINT_URL = process.env.R2_ENDPOINT_URL; // e.g., https://<accountid>.r2.cloudflarestorage.com
@@ -83,9 +86,9 @@ client.on('qr', async (qr) => {
     qrcode.generate(qr, { small: true });
     // Store the QR code in Redis for the main API to fetch
     try {
-        await redisClient.set('whatsapp:qr_code', qr, { EX: 60 }); // Expires in 60 seconds
+        await redisClient.set(qrKey(USER_ID), qr, { EX: 60 }); // Expires in 60 seconds
         console.log('큐알코드를 레디스에 성공적으로 저장했습니다');
-        await redisClient.set('whatsapp:status', 'disconnected');
+        await redisClient.set(statusKey(USER_ID), 'disconnected');
     } catch (err) {
         console.error('❌ Redis QR code SET error:', err);
     }
@@ -95,8 +98,8 @@ client.on('ready', async () => {
     console.log('✅ WhatsApp Adapter is ready and connected.');
     // Update status in Redis
     try {
-        await redisClient.set('whatsapp:status', 'connected');
-        await redisClient.del('whatsapp:qr_code'); // QR code is no longer needed
+        await redisClient.set(statusKey(USER_ID), 'connected');
+        await redisClient.del(qrKey(USER_ID)); // QR code is no longer needed
     } catch (err) {
         console.error('❌ Redis status SET error:', err);
     }
