@@ -24,6 +24,10 @@ RUN useradd -ms /bin/bash appuser
 # Copia el código de la aplicación a la carpeta /code/app
 COPY --chown=appuser:appuser ./app /code/app
 
+# Copia y da permisos de ejecución al script de entrada
+COPY ./entrypoint.sh /code/entrypoint.sh
+RUN chmod +x /code/entrypoint.sh
+
 # Activa el entorno virtual
 ENV PATH="/opt/venv/bin:$PATH"
 
@@ -32,6 +36,7 @@ ENV PYTHONPATH=/code
 
 USER appuser
 
-# Ejecuta el script como un módulo desde la raíz del código
+# Establece el entrypoint y el comando por defecto
+ENTRYPOINT ["/code/entrypoint.sh"]
 CMD ["python", "-m", "app.main"]
 

@@ -1,25 +1,32 @@
-# Use an official Python runtime as a parent image
-FROM python:3.11-slim
+# Stage 1: Builder
+FROM python:3.11-slim as builder
 
-# Set the working directory in the container
 WORKDIR /app
+COPY requirements-prod.txt ./
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+RUN pip install --no-cache-dir -r requirements-prod.txt
 
-# Copy the requirements file into the container at /app
-COPY requirements-prod.txt .
+# Stage 2: Runner
+FROM python:3.11-slim as runner
 
-# Create a virtual environment and install dependencies
-RUN python -m venv /venv \
-    && /venv/bin/pip install --no-cache-dir -r requirements-prod.txt
+WORKDIR /code
 
-# Ensure the virtualenv binaries are on PATH
-ENV PATH="/venv/bin:$PATH" \
-    PYTHONUNBUFFERED=1
+# Copy the virtual environment from the builder
+COPY --from=builder /opt/venv /opt/venv
 
-# Copy the rest of the application's code into the container at /app
 RUN useradd -ms /bin/bash appuser
-COPY --chown=appuser:appuser ./app /app
+
+# Copy the application code to the /code/app folder
+COPY --chown=appuser:appuser ./app /code/app
+
+# Activate the virtual environment
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Add the /code directory to PYTHONPATH
+ENV PYTHONPATH=/code
 
 USER appuser
 
-# Command to run the application
-CMD ["python", "main.py"]
+# Execute the script as a module
+CMD ["python", "-m", "app.main"]
