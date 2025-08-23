@@ -5,6 +5,10 @@ os.environ.setdefault("SUPABASE_KEY", "test")
 os.environ.setdefault("GOOGLE_API_KEY", "test")
 os.environ.setdefault("DEEPSEEK_API_KEY", "test")
 os.environ.setdefault("OPENAI_API_KEY", "test")
+os.environ.setdefault("R2_ENDPOINT_URL", "http://example.com")
+os.environ.setdefault("R2_ACCESS_KEY_ID", "key")
+os.environ.setdefault("R2_SECRET_ACCESS_KEY", "secret")
+os.environ.setdefault("R2_BUCKET_NAME", "bucket")
 
 import app.main as app_main
 

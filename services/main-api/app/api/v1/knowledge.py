@@ -6,25 +6,43 @@ import boto3
 from botocore.client import Config
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Request
 
-from app.dependencies import get_current_user_id
+from app.dependencies import get_current_user_id, get_supabase_adapter
+from app.infrastructure.supabase_adapter import SupabaseAdapter
 
 router = APIRouter()
 
 logger = logging.getLogger(__name__)
 
-# --- R2/S3 Configuration ---
-R2_ENDPOINT_URL = os.environ.get("R2_ENDPOINT_URL")
-R2_ACCESS_KEY_ID = os.environ.get("R2_ACCESS_KEY_ID")
-R2_SECRET_ACCESS_KEY = os.environ.get("R2_SECRET_ACCESS_KEY")
-R2_BUCKET_NAME = os.environ.get("R2_BUCKET_NAME")
+def load_r2_config() -> dict[str, str]:
+    required_keys = [
+        "R2_ENDPOINT_URL",
+        "R2_ACCESS_KEY_ID",
+        "R2_SECRET_ACCESS_KEY",
+        "R2_BUCKET_NAME",
+    ]
+    missing = [k for k in required_keys if not os.environ.get(k)]
+    if missing:
+        raise RuntimeError(
+            f"Missing R2 configuration variables: {', '.join(missing)}"
+        )
+    return {
+        "endpoint_url": os.environ["R2_ENDPOINT_URL"],
+        "access_key": os.environ["R2_ACCESS_KEY_ID"],
+        "secret_key": os.environ["R2_SECRET_ACCESS_KEY"],
+        "bucket": os.environ["R2_BUCKET_NAME"],
+    }
+
+r2_config = load_r2_config()
 
 s3_client = boto3.client(
-    's3',
-    endpoint_url=R2_ENDPOINT_URL,
-    aws_access_key_id=R2_ACCESS_KEY_ID,
-    aws_secret_access_key=R2_SECRET_ACCESS_KEY,
-    config=Config(signature_version='s3v4')
+    "s3",
+    endpoint_url=r2_config["endpoint_url"],
+    aws_access_key_id=r2_config["access_key"],
+    aws_secret_access_key=r2_config["secret_key"],
+    config=Config(signature_version="s3v4"),
 )
+
+R2_BUCKET_NAME = r2_config["bucket"]
 
 REDIS_DOCUMENT_STREAM = "events:new_document"
 ALLOWED_CONTENT_TYPES = {"application/pdf", "text/plain", "text/markdown"}
@@ -32,13 +50,12 @@ MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 
 @router.get("/knowledge/documents", tags=["Knowledge"])
 async def list_documents_for_user(
-    request: Request,
-    user_id: str = Depends(get_current_user_id)
+    supabase_adapter: SupabaseAdapter = Depends(get_supabase_adapter),
+    user_id: str = Depends(get_current_user_id),
 ):
     """
     Lists all documents uploaded by the current user.
     """
-    supabase_adapter = request.app.state.supabase_adapter
     try:
         documents = await supabase_adapter.get_documents_for_user(user_id=user_id)
         return documents
@@ -49,13 +66,13 @@ async def list_documents_for_user(
 async def upload_knowledge_file(
     request: Request,
     file: UploadFile = File(...),
-    user_id: str = Depends(get_current_user_id)
+    user_id: str = Depends(get_current_user_id),
+    supabase_adapter: SupabaseAdapter = Depends(get_supabase_adapter),
 ):
     """
     Uploads a knowledge document, stores it in R2, creates a record in Supabase,
     and publishes an event to Redis for processing.
     """
-    supabase_adapter = request.app.state.supabase_adapter
     redis_client = request.app.state.redis
 
     if file.content_type not in ALLOWED_CONTENT_TYPES:

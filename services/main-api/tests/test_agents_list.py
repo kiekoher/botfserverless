@@ -30,7 +30,8 @@ def test_list_agents_for_user(client, mocker):
     mock_adapter.list_agents_for_user = AsyncMock(return_value=[
         {"id": "1", "name": "Agent 1", "status": "active"}
     ])
-    app.state.supabase_adapter = mock_adapter
+    mock_adapter.client = SimpleNamespace(auth=SimpleNamespace(get_user=lambda _: mock_user))
+    mocker.patch("app.dependencies.supabase_adapter", mock_adapter)
 
     response = client.get(
         "/api/v1/agents", headers={"Authorization": "Bearer token"}

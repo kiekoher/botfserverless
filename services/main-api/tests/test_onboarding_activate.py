@@ -24,7 +24,8 @@ def test_activate_agent(client, mocker):
     mock_adapter = mocker.Mock()
     mock_adapter.get_agent_for_user = AsyncMock(return_value={"id": "agent-1"})
     mock_adapter.update_agent_status = AsyncMock(return_value=True)
-    app.state.supabase_adapter = mock_adapter
+    mock_adapter.client = SimpleNamespace(auth=SimpleNamespace(get_user=lambda _: mock_user))
+    mocker.patch("app.dependencies.supabase_adapter", mock_adapter)
 
     response = client.post(
         "/api/v1/agent/activate", headers={"Authorization": "Bearer token"}

@@ -1,7 +1,8 @@
 import logging
 from fastapi import APIRouter, Request, HTTPException, Depends
 from fastapi.responses import JSONResponse
-from app.dependencies import get_current_user_id
+from app.dependencies import get_current_user_id, get_supabase_adapter
+from app.infrastructure.supabase_adapter import SupabaseAdapter
 
 router = APIRouter()
 
@@ -43,11 +44,11 @@ async def get_onboarding_status(request: Request, user_id: str = Depends(get_cur
 
 @router.post("/agent/activate", tags=["Onboarding"])
 async def activate_agent(
-    request: Request, user_id: str = Depends(get_current_user_id)
+    supabase_adapter: SupabaseAdapter = Depends(get_supabase_adapter),
+    user_id: str = Depends(get_current_user_id),
 ):
     """Activate the agent associated with the current user."""
     try:
-        supabase_adapter = request.app.state.supabase_adapter
         agent = await supabase_adapter.get_agent_for_user(user_id)
         if not agent:
             raise HTTPException(status_code=404, detail="Agent not found")

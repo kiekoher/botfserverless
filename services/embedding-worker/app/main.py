@@ -28,12 +28,33 @@ SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY")
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 logger.info("🔌 Supabase client created with limited permissions.")
 
-# R2/S3
-R2_ENDPOINT_URL = os.environ.get("R2_ENDPOINT_URL")
-R2_ACCESS_KEY_ID = os.environ.get("R2_ACCESS_KEY_ID")
-R2_SECRET_ACCESS_KEY = os.environ.get("R2_SECRET_ACCESS_KEY")
-R2_BUCKET_NAME = os.environ.get("R2_BUCKET_NAME")
-s3_client = boto3.client('s3', endpoint_url=R2_ENDPOINT_URL, aws_access_key_id=R2_ACCESS_KEY_ID, aws_secret_access_key=R2_SECRET_ACCESS_KEY)
+def load_r2_config() -> dict[str, str]:
+    required = [
+        "R2_ENDPOINT_URL",
+        "R2_ACCESS_KEY_ID",
+        "R2_SECRET_ACCESS_KEY",
+        "R2_BUCKET_NAME",
+    ]
+    missing = [k for k in required if not os.environ.get(k)]
+    if missing:
+        raise RuntimeError(
+            f"Missing R2 configuration variables: {', '.join(missing)}"
+        )
+    return {
+        "endpoint_url": os.environ["R2_ENDPOINT_URL"],
+        "access_key": os.environ["R2_ACCESS_KEY_ID"],
+        "secret_key": os.environ["R2_SECRET_ACCESS_KEY"],
+        "bucket": os.environ["R2_BUCKET_NAME"],
+    }
+
+r2_config = load_r2_config()
+R2_BUCKET_NAME = r2_config["bucket"]
+s3_client = boto3.client(
+    "s3",
+    endpoint_url=r2_config["endpoint_url"],
+    aws_access_key_id=r2_config["access_key"],
+    aws_secret_access_key=r2_config["secret_key"],
+)
 
 # OpenAI
 client = OpenAI()
