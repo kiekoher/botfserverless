@@ -5,20 +5,28 @@ from unittest.mock import MagicMock, AsyncMock, patch
 # --- Add app directory to path to allow for imports ---
 import sys
 import os
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../app')))
-# ---
+import importlib.util
 
-# Since main.py runs code on import, we need to mock clients before importing
-# Mock external dependencies before they are imported in main
+# Dynamically load the transcription worker's main module to avoid package name collisions
+spec = importlib.util.spec_from_file_location(
+    "transcription_worker_main",
+    os.path.abspath(os.path.join(os.path.dirname(__file__), "../app/main.py")),
+)
+transcription_worker = importlib.util.module_from_spec(spec)
+
+# Since main.py runs code on import, mock external dependencies before executing
 mock_boto3 = MagicMock()
 mock_whisper = MagicMock()
 
-with patch.dict('sys.modules', {
-    'boto3': mock_boto3,
-    'faster_whisper': mock_whisper,
-    'pydub': MagicMock()
-}):
-    from app import main as transcription_worker
+with patch.dict(
+    "sys.modules",
+    {
+        "boto3": mock_boto3,
+        "faster_whisper": mock_whisper,
+        "pydub": MagicMock(),
+    },
+):
+    spec.loader.exec_module(transcription_worker)
 
 @pytest.fixture(autouse=True)
 def reset_mocks():
@@ -67,8 +75,16 @@ async def test_process_message_no_media(mock_redis_client):
 
 
 @pytest.mark.asyncio
-@patch("app.main.download_audio_from_r2_sync", return_value="/tmp/fake_audio.ogg")
-@patch("app.main.transcribe_audio_sync", return_value="This is a test transcription.")
+@patch.object(
+    transcription_worker,
+    "download_audio_from_r2_sync",
+    return_value="/tmp/fake_audio.ogg",
+)
+@patch.object(
+    transcription_worker,
+    "transcribe_audio_sync",
+    return_value="This is a test transcription.",
+)
 async def test_process_message_with_media(
     mock_transcribe, mock_download, mock_redis_client
 ):
@@ -111,7 +127,11 @@ async def test_process_message_with_media(
 
 
 @pytest.mark.asyncio
-@patch("app.main.download_audio_from_r2_sync", side_effect=Exception("S3 Download Failed"))
+@patch.object(
+    transcription_worker,
+    "download_audio_from_r2_sync",
+    side_effect=Exception("S3 Download Failed"),
+)
 async def test_process_message_download_fails_and_retries(mock_download, mock_redis_client):
     """
     Tests that a message processing fails, retries, and moves to DLQ
