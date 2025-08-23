@@ -18,10 +18,27 @@ CONSUMER_GROUP = "group:transcription-workers"
 CONSUMER_NAME = f"consumer:transcription-worker-{os.getpid()}"
 
 # R2 Configuration
-R2_ENDPOINT_URL = os.getenv("R2_ENDPOINT_URL")
-R2_BUCKET_NAME = os.getenv("R2_BUCKET_NAME")
-R2_ACCESS_KEY_ID = os.getenv("R2_ACCESS_KEY_ID")
-R2_SECRET_ACCESS_KEY = os.getenv("R2_SECRET_ACCESS_KEY")
+def load_r2_config() -> dict[str, str]:
+    required = [
+        "R2_ENDPOINT_URL",
+        "R2_BUCKET_NAME",
+        "R2_ACCESS_KEY_ID",
+        "R2_SECRET_ACCESS_KEY",
+    ]
+    missing = [k for k in required if not os.getenv(k)]
+    if missing:
+        raise RuntimeError(
+            f"Missing R2 configuration variables: {', '.join(missing)}"
+        )
+    return {
+        "endpoint_url": os.environ["R2_ENDPOINT_URL"],
+        "bucket": os.environ["R2_BUCKET_NAME"],
+        "access_key": os.environ["R2_ACCESS_KEY_ID"],
+        "secret_key": os.environ["R2_SECRET_ACCESS_KEY"],
+    }
+
+_r2_cfg = load_r2_config()
+R2_BUCKET_NAME = _r2_cfg["bucket"]
 
 # Dead Letter Queue
 DEAD_LETTER_QUEUE = "events:dead_letter_queue"
@@ -47,9 +64,9 @@ def initialize_external_clients():
     try:
         s3_client = boto3.client(
             "s3",
-            endpoint_url=R2_ENDPOINT_URL,
-            aws_access_key_id=R2_ACCESS_KEY_ID,
-            aws_secret_access_key=R2_SECRET_ACCESS_KEY,
+            endpoint_url=_r2_cfg["endpoint_url"],
+            aws_access_key_id=_r2_cfg["access_key"],
+            aws_secret_access_key=_r2_cfg["secret_key"],
             region_name="auto",
         )
         logger.info("✅ R2 S3 client initialized.")

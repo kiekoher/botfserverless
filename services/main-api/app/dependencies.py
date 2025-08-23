@@ -39,3 +39,8 @@ def get_current_user_id(request: Request) -> str:
         return user.user.id  # type: ignore[attr-defined]
     except Exception as exc:  # pragma: no cover - depends on external service
         raise HTTPException(status_code=401, detail="Invalid authentication token") from exc
+
+
+def get_supabase_adapter() -> SupabaseAdapter:
+    """Returns the shared Supabase adapter instance."""
+    return supabase_adapter

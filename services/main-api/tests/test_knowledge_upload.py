@@ -1,6 +1,12 @@
+import os
 import pytest
 from fastapi.testclient import TestClient
 from unittest.mock import AsyncMock, MagicMock
+
+os.environ.setdefault("R2_ENDPOINT_URL", "http://example.com")
+os.environ.setdefault("R2_ACCESS_KEY_ID", "key")
+os.environ.setdefault("R2_SECRET_ACCESS_KEY", "secret")
+os.environ.setdefault("R2_BUCKET_NAME", "bucket")
 
 from app.main import app
 from app.dependencies import get_current_user_id
@@ -28,7 +34,9 @@ def client(mock_redis):
 
 
 def _setup_state(supabase_adapter, redis_client):
-    app.state.supabase_adapter = supabase_adapter
+    import app.dependencies as deps
+
+    deps.supabase_adapter = supabase_adapter
     app.state.redis = redis_client
 
 

@@ -1,7 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from app.infrastructure.supabase_adapter import SupabaseAdapter
-from app.dependencies import get_current_user_id
+from app.dependencies import get_current_user_id, get_supabase_adapter
 
 router = APIRouter()
 
@@ -13,14 +13,10 @@ class AgentConfig(BaseModel):
 
 @router.get("/agents", tags=["Agents"])
 async def list_agents_for_current_user(
-    request: Request,
+    supabase_adapter: SupabaseAdapter = Depends(get_supabase_adapter),
     user_id: str = Depends(get_current_user_id),
 ):
     """Return all agents for the authenticated user."""
-    supabase_adapter = request.app.state.supabase_adapter
-    if not supabase_adapter:
-        supabase_adapter = SupabaseAdapter()
-
     try:
         return await supabase_adapter.list_agents_for_user(user_id=user_id)
     except Exception as e:
@@ -29,19 +25,12 @@ async def list_agents_for_current_user(
 @router.post("/agents/me", tags=["Agents"], status_code=201)
 async def upsert_agent_for_current_user(
     config: AgentConfig,
-    request: Request,
-    user_id: str = Depends(get_current_user_id)
+    supabase_adapter: SupabaseAdapter = Depends(get_supabase_adapter),
+    user_id: str = Depends(get_current_user_id),
 ):
     """
     Creates or updates the agent configuration for the currently authenticated user.
     """
-    # This is not ideal, but it's a way to get the adapter instance
-    # A better way would be to have a dependency for the adapter itself.
-    supabase_adapter = request.app.state.supabase_adapter
-    if not supabase_adapter:
-         # Manually creating it if not on state
-        supabase_adapter = SupabaseAdapter()
-
     try:
         agent = await supabase_adapter.upsert_agent_config(
             user_id=user_id,
@@ -58,16 +47,12 @@ async def upsert_agent_for_current_user(
 
 @router.get("/agents/me", tags=["Agents"])
 async def get_agent_for_current_user(
-    request: Request,
-    user_id: str = Depends(get_current_user_id)
+    supabase_adapter: SupabaseAdapter = Depends(get_supabase_adapter),
+    user_id: str = Depends(get_current_user_id),
 ):
     """
     Retrieves the agent configuration for the currently authenticated user.
     """
-    supabase_adapter = request.app.state.supabase_adapter
-    if not supabase_adapter:
-        supabase_adapter = SupabaseAdapter()
-
     try:
         agent = await supabase_adapter.get_agent_for_user(user_id=user_id)
         if not agent:
