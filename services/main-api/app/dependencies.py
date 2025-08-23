@@ -3,7 +3,6 @@ import os
 from fastapi import HTTPException, Request
 
 from app.core.ai_router import AIRouter
-from app.core.use_cases.process_chat_message import ProcessChatMessage
 from app.infrastructure.deepseek_adapter import DeepSeekV2Adapter, DeepSeekChatAdapter
 from app.infrastructure.gemini_adapter import GeminiAdapter
 from app.infrastructure.openai_adapter import OpenAIEmbeddingAdapter
@@ -26,11 +25,6 @@ ai_router = AIRouter(
     deepseek_chat_adapter=deepseek_chat_adapter,
     openai_embedding_adapter=openai_embedding_adapter,
 )
-
-
-def get_process_chat_message_use_case() -> ProcessChatMessage:
-    """Dependency injector for the ProcessChatMessage use case."""
-    return ProcessChatMessage(router=ai_router, db_adapter=supabase_adapter)
 
 
 def get_current_user_id(request: Request) -> str:
