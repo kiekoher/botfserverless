@@ -9,6 +9,7 @@ from redis.exceptions import ResponseError
 from typing import Optional
 
 from fastapi.middleware.cors import CORSMiddleware
+from prometheus_fastapi_instrumentator import Instrumentator
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
@@ -23,13 +24,16 @@ from app.dependencies import (
     openai_embedding_adapter,
     ai_router,
 )
-from app.api.v1 import onboarding, agents, knowledge
+from app.api.v1 import onboarding, agents, knowledge, quality, billing, reports
+from app.core.config import get_settings
+
+settings = get_settings()
 
 # --------------------------
 #   Configuración Redis
 # --------------------------
-REDIS_HOST = os.getenv("REDIS_HOST", "redis")
-REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
+REDIS_HOST = settings.redis_host
+REDIS_PORT = settings.redis_port
 REDIS_URL = f"redis://{REDIS_HOST}:{REDIS_PORT}"
 STREAM_IN = "events:transcribed_message"
 STREAM_OUT = "events:message_out"
@@ -38,7 +42,7 @@ CONSUMER_NAME = f"consumer:main-api-{os.getenv('HOSTNAME', '1')}"
 
 DEAD_LETTER_QUEUE = "events:dead_letter_queue"
 MAX_RETRIES = 3
-RATE_LIMIT = int(os.getenv("API_RATE_LIMIT", "60"))
+RATE_LIMIT = settings.api_rate_limit
 
 # --------------------------
 #      FastAPI App
@@ -86,7 +90,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Main API", version="1.0.0", lifespan=lifespan)
 
-allowed_origins = [o.strip() for o in os.getenv('FRONTEND_ORIGINS', '').split(',') if o.strip()]
+allowed_origins = [o.strip() for o in settings.frontend_origins.split(',') if o.strip()]
 if not allowed_origins:
     raise RuntimeError('FRONTEND_ORIGINS environment variable must be set')
 
@@ -97,6 +101,8 @@ app.add_middleware(
     allow_methods=['*'],
     allow_headers=['*'],
 )
+
+Instrumentator().instrument(app).expose(app)
 
 
 
@@ -264,6 +270,9 @@ async def main_loop(redis_client: Redis, stop_event: asyncio.Event):
 app.include_router(onboarding.router, prefix="/api/v1")
 app.include_router(agents.router, prefix="/api/v1")
 app.include_router(knowledge.router, prefix="/api/v1")
+app.include_router(quality.router, prefix="/api/v1")
+app.include_router(billing.router, prefix="/api/v1")
+app.include_router(reports.router, prefix="/api/v1")
 
 # --------------------------
 # Ciclo de vida de la App manejado por "lifespan" en la creación de FastAPI.

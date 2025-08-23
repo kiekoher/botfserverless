@@ -6,7 +6,7 @@ import { useDropzone } from 'react-dropzone';
 import { getDocuments, uploadDocument, Document } from '@/services/api';
 
 // Status Badge Component
-const StatusBadge = ({ status }) => {
+const StatusBadge: React.FC<{ status: 'pending' | 'processing' | 'completed' | 'failed' }> = ({ status }) => {
   const baseClasses = "px-2 py-1 text-xs font-semibold rounded-full";
   const statusMap = {
     pending: { text: 'Pending', classes: 'bg-yellow-100 text-yellow-800' },

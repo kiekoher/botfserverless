@@ -9,6 +9,10 @@ os.environ.setdefault("R2_ENDPOINT_URL", "http://example.com")
 os.environ.setdefault("R2_ACCESS_KEY_ID", "key")
 os.environ.setdefault("R2_SECRET_ACCESS_KEY", "secret")
 os.environ.setdefault("R2_BUCKET_NAME", "bucket")
+os.environ.setdefault("DOMAIN_NAME", "localhost")
+os.environ.setdefault("FRONTEND_ORIGINS", "http://localhost")
+os.environ.setdefault("REDIS_HOST", "localhost")
+os.environ.setdefault("REDIS_PORT", "6379")
 
 import app.main as app_main
 

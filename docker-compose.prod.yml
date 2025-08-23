@@ -47,6 +47,11 @@ services:
       dockerfile: Dockerfile
     container_name: eva_main_api_prod
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
     environment:
       - DOMAIN_NAME=${DOMAIN_NAME}
       - SUPABASE_URL=${SUPABASE_URL}
@@ -82,6 +87,11 @@ services:
       dockerfile: Dockerfile
     container_name: eva_whatsapp_gateway_prod
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
     environment:
       - R2_ENDPOINT_URL=${R2_ENDPOINT_URL}
       - R2_BUCKET_NAME=${R2_BUCKET_NAME}
@@ -110,6 +120,11 @@ services:
       dockerfile: Dockerfile
     container_name: eva_transcription_worker_prod
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
     environment:
       - R2_ENDPOINT_URL=${R2_ENDPOINT_URL}
       - R2_BUCKET_NAME=${R2_BUCKET_NAME}
@@ -135,6 +150,11 @@ services:
       dockerfile: Dockerfile
     container_name: eva_embedding_worker_prod
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
     environment:
       - R2_ENDPOINT_URL=${R2_ENDPOINT_URL}
       - R2_BUCKET_NAME=${R2_BUCKET_NAME}
@@ -163,6 +183,11 @@ services:
       dockerfile: Dockerfile
     container_name: eva_dlq_monitor_prod
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 256M
     environment:
       - REDIS_HOST=${REDIS_HOST}
     depends_on:
@@ -184,6 +209,11 @@ services:
       dockerfile: Dockerfile
     container_name: eva_frontend_prod
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
     environment:
       - DOMAIN_NAME=${DOMAIN_NAME}
       - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}

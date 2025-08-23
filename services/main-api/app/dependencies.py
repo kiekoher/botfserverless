@@ -1,5 +1,3 @@
-import os
-
 from fastapi import HTTPException, Request
 
 from app.core.ai_router import AIRouter
@@ -7,14 +5,17 @@ from app.infrastructure.deepseek_adapter import DeepSeekV2Adapter, DeepSeekChatA
 from app.infrastructure.gemini_adapter import GeminiAdapter
 from app.infrastructure.openai_adapter import OpenAIEmbeddingAdapter
 from app.infrastructure.supabase_adapter import SupabaseAdapter
+from app.core.config import get_settings
+
+settings = get_settings()
 
 # Create singleton instances of our adapters
 supabase_adapter = SupabaseAdapter()
-gemini_adapter = GeminiAdapter()
-deepseek_v2_adapter = DeepSeekV2Adapter(api_key=os.getenv("DEEPSEEK_API_KEY"))
-deepseek_chat_adapter = DeepSeekChatAdapter(api_key=os.getenv("DEEPSEEK_API_KEY"))
+gemini_adapter = GeminiAdapter(api_key=settings.google_api_key)
+deepseek_v2_adapter = DeepSeekV2Adapter(api_key=settings.deepseek_api_key)
+deepseek_chat_adapter = DeepSeekChatAdapter(api_key=settings.deepseek_api_key)
 openai_embedding_adapter = OpenAIEmbeddingAdapter(
-    api_key=os.getenv("OPENAI_API_KEY"),
+    api_key=settings.openai_api_key,
     supabase_adapter=supabase_adapter,
     gemini_adapter=gemini_adapter,
 )

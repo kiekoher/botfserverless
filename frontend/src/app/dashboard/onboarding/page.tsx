@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import QRCode from 'qrcode.react';
+import { QRCodeCanvas } from 'qrcode.react';
 import Link from 'next/link';
 import {
   getOnboardingStatus,
@@ -13,8 +13,14 @@ import {
 } from '@/services/api';
 import { useRouter } from 'next/navigation';
 
+interface Step {
+  id: number;
+  name: string;
+  description: string;
+}
+
 // --- Child Components ---
-const StepButton = ({ step, currentStep, setStep, disabled }) => (
+const StepButton: React.FC<{ step: Step; currentStep: number; setStep: (id: number) => void; disabled: boolean }> = ({ step, currentStep, setStep, disabled }) => (
   <button
     onClick={() => setStep(step.id)}
     disabled={disabled}
@@ -29,7 +35,7 @@ const StepButton = ({ step, currentStep, setStep, disabled }) => (
   </button>
 );
 
-const StepContent = ({ step, children }) => (
+const StepContent: React.FC<{ step: Step; children: React.ReactNode }> = ({ step, children }) => (
   <div>
     <h2 className="text-2xl font-semibold text-gray-800">{step.name}</h2>
     <p className="text-gray-500 mb-6">{step.description}</p>
@@ -46,19 +52,19 @@ const OnboardingPage = () => {
   const router = useRouter();
 
   // Query for WhatsApp connection status
-  const { data: statusData, error: statusError } = useQuery({
+  const { data: statusData, error: statusError } = useQuery<OnboardingStatus>({
     queryKey: ['onboardingStatus'],
     queryFn: getOnboardingStatus,
-    refetchInterval: data => (data?.status === 'connected' ? false : 2000), // Poll every 2s until connected
+    refetchInterval: (query) => (query.state.data?.status === 'connected' ? false : 2000),
   });
 
   const isConnected = statusData?.status === 'connected';
 
   // Query for QR Code, only enabled if not connected
-  const { data: qrData, isLoading: isQrLoading } = useQuery({
+  const { data: qrData, isLoading: isQrLoading } = useQuery<QrCodeResponse | null>({
     queryKey: ['qrCode'],
     queryFn: getWhatsappQrCode,
-    refetchInterval: data => (data?.qr_code || isConnected ? false : 3000), // Poll every 3s if no QR code and not connected
+    refetchInterval: (query) => (query.state.data?.qr_code || isConnected ? false : 3000),
     enabled: !isConnected,
   });
 
@@ -83,7 +89,7 @@ const OnboardingPage = () => {
   }, [isConnected]);
 
   // --- Steps Configuration ---
-  const steps = [
+  const steps: Step[] = [
     { id: 1, name: "Connect your Channel", description: "Scan the QR code with WhatsApp to connect your agent." },
     { id: 2, name: "Define Agent Personality", description: "Configure your agent&apos;s name, product, and core instructions." },
     { id: 3, name: "Provide Knowledge", description: "Upload documents to your agent&apos;s knowledge base." },
@@ -99,7 +105,7 @@ const OnboardingPage = () => {
             {statusError && <p className="text-red-500">Error checking status. Please refresh.</p>}
             {qrData?.qr_code && !isConnected && (
               <div className="text-center">
-                <QRCode value={qrData.qr_code} size={160} />
+                <QRCodeCanvas value={qrData.qr_code} size={160} />
                 <p className="mt-4 text-gray-600">Scan this with WhatsApp.</p>
               </div>
             )}
