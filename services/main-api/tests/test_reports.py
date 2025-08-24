@@ -1,6 +1,7 @@
 import pytest
 from fastapi.testclient import TestClient
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 from app.main import app
 
@@ -22,9 +23,21 @@ def mock_auth(mocker):
     )
 
 
-def test_reports_endpoints(client, mocker):
+def test_reports_endpoints(client, mocker, auth_header):
     mock_auth(mocker)
-    headers = {"Authorization": "Bearer token"}
+    mocker.patch(
+        "app.dependencies.supabase_adapter.get_opportunity_briefs",
+        AsyncMock(return_value={"user_id": "user-1", "opportunities": []}),
+    )
+    mocker.patch(
+        "app.dependencies.supabase_adapter.get_performance_log",
+        AsyncMock(return_value={"user_id": "user-1", "logs": []}),
+    )
+    mocker.patch(
+        "app.dependencies.supabase_adapter.get_executive_summaries",
+        AsyncMock(return_value={"user_id": "user-1", "summaries": []}),
+    )
+    headers = auth_header("user-1")
     for path in [
         "/api/v1/reports/opportunity-briefs",
         "/api/v1/reports/performance-log",

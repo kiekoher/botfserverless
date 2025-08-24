@@ -6,6 +6,13 @@ const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
 const { v4: uuidv4 } = require('uuid');
 const os = require('os');
 const { qrKey, statusKey } = require('./keys');
+const http = require('http');
+const clientMetrics = require('prom-client');
+clientMetrics.collectDefaultMetrics();
+const sessionGauge = new clientMetrics.Gauge({
+    name: 'eva_whatsapp_session_connected',
+    help: 'WhatsApp session connection status (1 connected, 0 disconnected)'
+});
 
 // --- Configuration ---
 const REDIS_HOST = process.env.REDIS_HOST || 'redis';
@@ -65,6 +72,18 @@ const s3Client = new S3Client({
 });
 console.log("☁️  R2 S3 Client Initialized.");
 
+// Metrics server
+const metricsServer = http.createServer(async (req, res) => {
+    if (req.url === '/metrics') {
+        res.setHeader('Content-Type', clientMetrics.register.contentType);
+        res.end(await clientMetrics.register.metrics());
+    } else {
+        res.statusCode = 404;
+        res.end();
+    }
+});
+metricsServer.listen(9100, () => console.log('📊 Metrics server running on :9100/metrics'));
+
 // WhatsApp Client
 const SESSION_PATH = process.env.WHATSAPP_SESSION_PATH || '/app/session';
 const client = new Client({
@@ -88,6 +107,7 @@ async function initializeClient(retry = 0) {
 
 client.on('disconnected', async (reason) => {
     console.error(`⚠️ WhatsApp disconnected: ${reason}. Reinitializing...`);
+    sessionGauge.set(0);
     await initializeClient();
 });
 
@@ -107,6 +127,7 @@ client.on('qr', async (qr) => {
 
 client.on('ready', async () => {
     console.log('✅ WhatsApp Adapter is ready and connected.');
+    sessionGauge.set(1);
     // Update status in Redis
     try {
         await redisClient.set(statusKey(USER_ID), 'connected');

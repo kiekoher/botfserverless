@@ -111,6 +111,8 @@ services:
       - WHATSAPP_USER_ID=${WHATSAPP_USER_ID}
     volumes:
       - whatsapp_session_prod:/app/session
+    ports:
+      - "9100:9100"
     depends_on:
       - redis
     healthcheck:

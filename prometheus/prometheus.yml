@@ -19,3 +19,8 @@ scrape_configs:
     metrics_path: /metrics
     static_configs:
       - targets: ["main-api:8000"]
+
+  - job_name: "whatsapp-gateway"
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["whatsapp-gateway:9100"]

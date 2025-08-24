@@ -15,7 +15,7 @@ def client(mocker):
         yield c
 
 
-def test_activate_agent(client, mocker):
+def test_activate_agent(client, mocker, auth_header):
     mock_user = SimpleNamespace(user=SimpleNamespace(id="user-123"))
     mocker.patch(
         "app.dependencies.supabase_adapter.client.auth.get_user",
@@ -28,7 +28,7 @@ def test_activate_agent(client, mocker):
     mocker.patch("app.dependencies.supabase_adapter", mock_adapter)
 
     response = client.post(
-        "/api/v1/agent/activate", headers={"Authorization": "Bearer token"}
+        "/api/v1/agent/activate", headers=auth_header("user-123")
     )
     assert response.status_code == 200
     assert response.json() == {"status": "ok", "agent_id": "agent-1"}
