@@ -1,42 +1,43 @@
-# Stage 1: Builder
+# Stage 1: Build dependencies
 FROM python:3.11-slim as builder
 
 WORKDIR /app
 
-# Install system dependencies needed for build
-RUN apt-get update && apt-get install -y --no-install-recommends gcc
+# Install build-essential if any packages need to compile from source
+RUN apt-get update && apt-get install -y --no-cache-dir build-essential
 
-COPY requirements-prod.txt ./
-
+# Create a virtual environment
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-RUN pip install --no-cache-dir -r requirements-prod.txt
+# Copy and install requirements.
+# We copy both so the layer can be cached, even if only one is used.
+COPY requirements.txt requirements-prod.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Stage 2: Runner
+
+# Stage 2: Final production image
 FROM python:3.11-slim as runner
 
-# Install ffmpeg for audio processing
-RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg && rm -rf /var/lib/apt/lists/*
+# Install ffmpeg, which is a runtime dependency for audio processing
+RUN apt-get update && apt-get install -y --no-cache-dir --no-install-recommends ffmpeg && rm -rf /var/lib/apt/lists/*
 
-# Create a directory for the application code
 WORKDIR /code
 
-# Copy the virtual environment from the builder
+# Copy the virtual environment from the builder stage
 COPY --from=builder /opt/venv /opt/venv
 
-RUN useradd -ms /bin/bash appuser
+# Create a non-root user to run the application
+RUN useradd --create-home --shell /bin/bash appuser
 
-# Copy the application code to the /code/app folder
+# Copy application code
 COPY --chown=appuser:appuser ./app /code/app
 
-# Activate the virtual environment
+# Activate the virtual environment for all subsequent commands
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Add the /code directory to PYTHONPATH
-ENV PYTHONPATH=/code
-
+# Set the user to the non-root user
 USER appuser
 
-# Execute the script as a module
+# Set the default command
 CMD ["python", "-m", "app.main"]

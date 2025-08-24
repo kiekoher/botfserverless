@@ -1,42 +1,50 @@
-# Stage 1: Builder
+# Stage 1: Build dependencies
 FROM python:3.11-slim as builder
 
 WORKDIR /app
-COPY requirements-prod.txt ./
+
+# Create a virtual environment
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
+
+# Copy and install requirements
+COPY requirements.txt requirements-prod.txt ./
+# Install development requirements first to run tests/quality checks if needed in CI
+RUN pip install --no-cache-dir -r requirements.txt
+# Then install/overwrite with production requirements to keep the layer clean
 RUN pip install --no-cache-dir -r requirements-prod.txt
 
-# Stage 2: Runner
+
+# Stage 2: Final production image
 FROM python:3.11-slim as runner
 
 WORKDIR /code
 
-# --- MEJORA IMPLEMENTADA ---
-# Se instalan las dependencias necesarias para el healthcheck basado en `nc`.
-RUN apt-get update && apt-get install -y curl procps netcat-openbsd && rm -rf /var/lib/apt/lists/*
+# Install only curl, which is needed for the healthcheck
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
 
-# Copia el entorno virtual del builder
+# Copy the virtual environment from the builder stage
 COPY --from=builder /opt/venv /opt/venv
 
-RUN useradd -ms /bin/bash appuser
+# Create a non-root user to run the application
+RUN useradd --create-home --shell /bin/bash appuser
 
-# Copia el código de la aplicación a la carpeta /code/app
+# Copy application code
 COPY --chown=appuser:appuser ./app /code/app
 
-# Copia y da permisos de ejecución al script de entrada
-COPY ./entrypoint.sh /code/entrypoint.sh
+# Copy and set permissions for the entrypoint script
+COPY --chown=appuser:appuser ./entrypoint.sh /code/entrypoint.sh
 RUN chmod +x /code/entrypoint.sh
 
-# Activa el entorno virtual
+# Activate the virtual environment for all subsequent commands
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Añade el directorio /code al PYTHONPATH para que Python encuentre el paquete 'app'
-ENV PYTHONPATH=/code
-
+# Set the user to the non-root user
 USER appuser
 
-# Establece el entrypoint y el comando por defecto
+# Set the entrypoint
 ENTRYPOINT ["/code/entrypoint.sh"]
-CMD ["python", "-m", "app.main"]
 
+# The default command is now defined in the entrypoint script itself
+# or can be passed by docker-compose
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

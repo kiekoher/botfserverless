@@ -50,6 +50,7 @@ services:
     build:
       context: ./services/main-api
       dockerfile: Dockerfile
+    image: ${DOCKERHUB_USERNAME}/eva-main-api:${MAIN_API_TAG:-latest}
     container_name: eva_main_api_prod
     restart: unless-stopped
     deploy:
@@ -93,6 +94,7 @@ services:
     build:
       context: ./services/whatsapp-gateway
       dockerfile: Dockerfile
+    image: ${DOCKERHUB_USERNAME}/eva-whatsapp-gateway:${WHATSAPP_GATEWAY_TAG:-latest}
     container_name: eva_whatsapp_gateway_prod
     restart: unless-stopped
     deploy:
@@ -128,6 +130,7 @@ services:
     build:
       context: ./services/transcription-worker
       dockerfile: Dockerfile
+    image: ${DOCKERHUB_USERNAME}/eva-transcription-worker:${TRANSCRIPTION_WORKER_TAG:-latest}
     container_name: eva_transcription_worker_prod
     restart: unless-stopped
     deploy:
@@ -135,6 +138,8 @@ services:
         limits:
           cpus: '0.50'
           memory: 512M
+    volumes:
+      - transcription_worker_health:/tmp/health
     environment:
       - R2_ENDPOINT_URL=${R2_ENDPOINT_URL}
       - R2_BUCKET_NAME=${R2_BUCKET_NAME}
@@ -144,9 +149,9 @@ services:
     depends_on:
       - redis
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"import redis, os; redis.Redis(host=os.getenv('REDIS_HOST','redis')).ping()\""]
-      interval: 10s
-      timeout: 5s
+      test: ["CMD-SHELL", "[ -f /tmp/health/last_processed ] && [ $(($(date +%s) - $(stat -c %Y /tmp/health/last_processed))) -lt 600 ] || exit 1"]
+      interval: 60s
+      timeout: 10s
       retries: 5
     logging:
       driver: json-file
@@ -160,6 +165,7 @@ services:
     build:
       context: ./services/embedding-worker
       dockerfile: Dockerfile
+    image: ${DOCKERHUB_USERNAME}/eva-embedding-worker:${EMBEDDING_WORKER_TAG:-latest}
     container_name: eva_embedding_worker_prod
     restart: unless-stopped
     deploy:
@@ -167,6 +173,8 @@ services:
         limits:
           cpus: '0.50'
           memory: 512M
+    volumes:
+      - embedding_worker_health:/tmp/health
     environment:
       - R2_ENDPOINT_URL=${R2_ENDPOINT_URL}
       - R2_BUCKET_NAME=${R2_BUCKET_NAME}
@@ -180,9 +188,9 @@ services:
     depends_on:
       - redis
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"import redis, os; redis.Redis(host=os.getenv('REDIS_HOST','redis')).ping()\""]
-      interval: 10s
-      timeout: 5s
+      test: ["CMD-SHELL", "[ -f /tmp/health/last_processed ] && [ $(($(date +%s) - $(stat -c %Y /tmp/health/last_processed))) -lt 600 ] || exit 1"]
+      interval: 60s
+      timeout: 10s
       retries: 5
     logging:
       driver: json-file
@@ -196,6 +204,7 @@ services:
     build:
       context: ./services/dlq-monitor
       dockerfile: Dockerfile
+    image: ${DOCKERHUB_USERNAME}/eva-dlq-monitor:${DLQ_MONITOR_TAG:-latest}
     container_name: eva_dlq_monitor_prod
     restart: unless-stopped
     deploy:
@@ -203,14 +212,16 @@ services:
         limits:
           cpus: '0.25'
           memory: 256M
+    volumes:
+      - dlq_monitor_health:/tmp/health
     environment:
       - REDIS_HOST=redis
     depends_on:
       - redis
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"import redis, os; redis.Redis(host=os.getenv('REDIS_HOST','redis')).ping()\""]
-      interval: 10s
-      timeout: 5s
+      test: ["CMD-SHELL", "[ -f /tmp/health/last_processed ] && [ $(($(date +%s) - $(stat -c %Y /tmp/health/last_processed))) -lt 600 ] || exit 1"]
+      interval: 60s
+      timeout: 10s
       retries: 5
     logging:
       driver: json-file
@@ -224,6 +235,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+    image: ${DOCKERHUB_USERNAME}/eva-frontend:${FRONTEND_TAG:-latest}
     container_name: eva_frontend_prod
     restart: unless-stopped
     deploy:
@@ -375,6 +387,9 @@ volumes:
   prometheus_data:
   alertmanager_data:
   grafana_data:
+  transcription_worker_health:
+  embedding_worker_health:
+  dlq_monitor_health:
 
 networks:
   eva-net:
