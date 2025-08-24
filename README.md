@@ -149,3 +149,9 @@ Los datos de la sesión de WhatsApp y los datos de Redis (si la persistencia est
         ```
 
     El script se encarga de detener los servicios necesarios, crear un archivo `.tar.gz` comprimido de los volúmenes, y reiniciar los servicios. También incluye una lógica opcional para subir los backups a Cloudflare R2 y para limpiar backups locales antiguos.
+
+---
+
+## 📄 Licencia
+
+Este proyecto se distribuye bajo la licencia [MIT](LICENSE).

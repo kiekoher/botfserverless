@@ -8,6 +8,8 @@ const os = require('os');
 const { qrKey, statusKey } = require('./keys');
 const http = require('http');
 const clientMetrics = require('prom-client');
+const pino = require('pino');
+const logger = pino();
 clientMetrics.collectDefaultMetrics();
 const sessionGauge = new clientMetrics.Gauge({
     name: 'eva_whatsapp_session_connected',
@@ -22,7 +24,7 @@ const CONSUMER_GROUP = 'group:whatsapp-gateway';
 const CONSUMER_NAME = `consumer:whatsapp-gateway-${os.hostname()}`;
 const USER_ID = process.env.WHATSAPP_USER_ID;
 if (!USER_ID) {
-    console.error('❌ WHATSAPP_USER_ID environment variable is required.');
+    logger.error('❌ WHATSAPP_USER_ID environment variable is required.');
     process.exit(1);
 }
 
@@ -35,31 +37,31 @@ const R2_REGION = process.env.R2_REGION || "auto";
 
 // Validate R2 configuration
 if (!R2_ENDPOINT_URL || !R2_BUCKET_NAME || !R2_ACCESS_KEY_ID || !R2_SECRET_ACCESS_KEY) {
-    console.error('❌ Missing R2 configuration. Set R2_ENDPOINT_URL, R2_BUCKET_NAME, R2_ACCESS_KEY_ID, and R2_SECRET_ACCESS_KEY.');
+    logger.error('❌ Missing R2 configuration. Set R2_ENDPOINT_URL, R2_BUCKET_NAME, R2_ACCESS_KEY_ID, and R2_SECRET_ACCESS_KEY.');
     process.exit(1);
 }
 const MAX_AUDIO_BYTES = 10 * 1024 * 1024;
 
 // --- Initialize Clients ---
-console.log("🤖 WhatsApp Gateway Initializing...");
+logger.info("🤖 WhatsApp Gateway Initializing...");
 
 // Redis Client with retry logic
 const redisClient = createClient({ url: `redis://${REDIS_HOST}:6379` });
-redisClient.on('error', (err) => console.error('Redis Client Error', err));
+redisClient.on('error', (err) => logger.error('Redis Client Error', err));
 
 async function connectRedis(retry = 0) {
     const delay = Math.min(1000 * 2 ** retry, 30000);
     try {
         await redisClient.connect();
-        console.log('🔌 Connected to Redis.');
+        logger.info('🔌 Connected to Redis.');
     } catch (err) {
-        console.error('❌ Redis connection error:', err);
+        logger.error('❌ Redis connection error:', err);
         await new Promise((res) => setTimeout(res, delay));
         return connectRedis(retry + 1);
     }
 }
 
-connectRedis().catch(console.error);
+connectRedis().catch(err => logger.error(err));
 
 // S3 Client for R2
 const s3Client = new S3Client({
@@ -70,7 +72,7 @@ const s3Client = new S3Client({
         secretAccessKey: R2_SECRET_ACCESS_KEY,
     },
 });
-console.log("☁️  R2 S3 Client Initialized.");
+logger.info("☁️  R2 S3 Client Initialized.");
 
 // Metrics server
 const metricsServer = http.createServer(async (req, res) => {
@@ -82,7 +84,7 @@ const metricsServer = http.createServer(async (req, res) => {
         res.end();
     }
 });
-metricsServer.listen(9100, () => console.log('📊 Metrics server running on :9100/metrics'));
+metricsServer.listen(9100, () => logger.info('📊 Metrics server running on :9100/metrics'));
 
 // WhatsApp Client
 const SESSION_PATH = process.env.WHATSAPP_SESSION_PATH || '/app/session';
@@ -99,41 +101,41 @@ async function initializeClient(retry = 0) {
     try {
         await client.initialize();
     } catch (err) {
-        console.error('❌ WhatsApp init error:', err);
+        logger.error('❌ WhatsApp init error:', err);
         await new Promise((res) => setTimeout(res, delay));
         return initializeClient(retry + 1);
     }
 }
 
 client.on('disconnected', async (reason) => {
-    console.error(`⚠️ WhatsApp disconnected: ${reason}. Reinitializing...`);
+    logger.error(`⚠️ WhatsApp disconnected: ${reason}. Reinitializing...`);
     sessionGauge.set(0);
     await initializeClient();
 });
 
 // --- Event Handlers ---
 client.on('qr', async (qr) => {
-    console.log('📱 Scan QR code to connect:');
+    logger.info('📱 Scan QR code to connect:');
     qrcode.generate(qr, { small: true });
     // Store the QR code in Redis for the main API to fetch
     try {
         await redisClient.set(qrKey(USER_ID), qr, { EX: 60 }); // Expires in 60 seconds
-        console.log('큐알코드를 레디스에 성공적으로 저장했습니다');
+        logger.info('큐알코드를 레디스에 성공적으로 저장했습니다');
         await redisClient.set(statusKey(USER_ID), 'disconnected');
     } catch (err) {
-        console.error('❌ Redis QR code SET error:', err);
+        logger.error('❌ Redis QR code SET error:', err);
     }
 });
 
 client.on('ready', async () => {
-    console.log('✅ WhatsApp Adapter is ready and connected.');
+    logger.info('✅ WhatsApp Adapter is ready and connected.');
     sessionGauge.set(1);
     // Update status in Redis
     try {
         await redisClient.set(statusKey(USER_ID), 'connected');
         await redisClient.del(qrKey(USER_ID)); // QR code is no longer needed
     } catch (err) {
-        console.error('❌ Redis status SET error:', err);
+        logger.error('❌ Redis status SET error:', err);
     }
 
     // Ensure Redis is connected before starting consumer
@@ -141,7 +143,7 @@ client.on('ready', async () => {
         try {
             await connectRedis();
         } catch (err) {
-            console.error('❌ Redis connection error:', err);
+            logger.error('❌ Redis connection error:', err);
             return;
         }
     }
@@ -154,7 +156,7 @@ client.on('message', async message => {
     if (chat.isGroup) return; // Ignore group messages
 
     const userId = message.from;
-    console.log(`💬 Received message from ${userId}`);
+    logger.info(`💬 Received message from ${userId}`);
 
     try {
         let messagePayload = {
@@ -172,11 +174,11 @@ client.on('message', async message => {
             if (media && media.mimetype.startsWith('audio/')) {
                 const audioBuffer = Buffer.from(media.data, 'base64');
                 if (audioBuffer.length > MAX_AUDIO_BYTES) {
-                    console.error(`Audio from ${userId} exceeds size limit.`);
+                    logger.error(`Audio from ${userId} exceeds size limit.`);
                     message.reply('Audio file is too large. Max 10MB.');
                     return;
                 }
-                console.log(`🎤 Received audio message from ${userId}. Type: ${media.mimetype}`);
+                logger.info(`🎤 Received audio message from ${userId}. Type: ${media.mimetype}`);
                 const mediaKey = `${userId}/${uuidv4()}.${media.mimetype.split('/')[1]}`;
                 await s3Client.send(new PutObjectCommand({
                     Bucket: R2_BUCKET_NAME,
@@ -184,17 +186,17 @@ client.on('message', async message => {
                     Body: audioBuffer,
                     ContentType: media.mimetype,
                 }));
-                console.log(`☁️  Uploaded audio to R2 with key: ${mediaKey}`);
+                logger.info(`☁️  Uploaded audio to R2 with key: ${mediaKey}`);
                 messagePayload.mediaKey = mediaKey;
                 messagePayload.mediaType = media.mimetype;
             } else {
-                console.log(`📸 Media from ${userId} is not audio, ignoring.`);
+                logger.info(`📸 Media from ${userId} is not audio, ignoring.`);
                 message.reply('Sorry, I can only process text and audio messages for now.');
                 return;
             }
 
         } else {
-            console.log(`✍️ Received text message from ${userId}: "${message.body}"`);
+            logger.info(`✍️ Received text message from ${userId}: "${message.body}"`);
             messagePayload.body = message.body;
         }
 
@@ -205,12 +207,12 @@ client.on('message', async message => {
             messagePayload,
             { TRIM: { strategy: 'MAXLEN', strategyModifier: '~', threshold: 10000 } }
         );
-        console.log(`✅ Message from ${userId} published to stream '${STREAM_IN}'.`);
+        logger.info(`✅ Message from ${userId} published to stream '${STREAM_IN}'.`);
 
         chat.sendStateTyping();
 
     } catch (error) {
-        console.error(`❌ Error processing message for ${userId}:`, error.message);
+        logger.error(`❌ Error processing message for ${userId}:`, error.message);
         message.reply("I'm having trouble processing your message. Please try again later.");
     }
 });
@@ -218,14 +220,14 @@ client.on('message', async message => {
 
 // --- Redis Consumer ---
 async function startRedisConsumer() {
-    console.log(`👂 Starting consumer for stream '${STREAM_OUT}'...`);
+    logger.info(`👂 Starting consumer for stream '${STREAM_OUT}'...`);
     try {
         await redisClient.xGroupCreate(STREAM_OUT, CONSUMER_GROUP, '0', { MKSTREAM: true });
     } catch (e) {
         if (e.message.includes('BUSYGROUP')) {
-            console.log(`Consumer group '${CONSUMER_GROUP}' already exists.`);
+            logger.info(`Consumer group '${CONSUMER_GROUP}' already exists.`);
         } else {
-            console.error('Error creating consumer group:', e);
+            logger.error('Error creating consumer group:', e);
             return;
         }
     }
@@ -249,21 +251,21 @@ async function startRedisConsumer() {
 
                 const { userId, body } = messageData;
 
-                console.log(`📩 Received response for ${userId} from stream: "${body}"`);
+                logger.info(`📩 Received response for ${userId} from stream: "${body}"`);
 
                 const chat = await client.getChatById(userId);
                 if (chat) {
                     chat.clearState();
                     await client.sendMessage(userId, body);
-                    console.log(`✉️ Sent response to ${userId}.`);
+                    logger.info(`✉️ Sent response to ${userId}.`);
                 } else {
-                    console.error(`Could not find chat with id ${userId} to send message.`);
+                    logger.error(`Could not find chat with id ${userId} to send message.`);
                 }
 
                 await redisClient.xAck(STREAM_OUT, CONSUMER_GROUP, messageId);
             }
         } catch (err) {
-            console.error('Error reading from Redis stream:', err);
+            logger.error('Error reading from Redis stream:', err);
             await new Promise(resolve => setTimeout(resolve, 5000));
         }
     }
