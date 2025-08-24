@@ -8,3 +8,4 @@ pytest-mock
 ruff
 coverage
 watchfiles
+fakeredis>=2.0.0
