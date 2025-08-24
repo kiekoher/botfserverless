@@ -1,4 +1,5 @@
-name: CI/CD - Test, Build, and Deploy
+# .github/workflows/deploy.yml
+name: Test, Build and Deploy EVA
 
 on:
   push:
@@ -9,197 +10,104 @@ on:
       - main
 
 jobs:
-  test-and-lint:
-    name: Test and Lint
+  test_and_scan:
+    name: Test & Vulnerability Scan
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Docker Compose
-        run: docker-compose -f docker-compose.prod.yml up -d
+      - name: Build environment for testing
+        run: docker-compose -f docker-compose.prod.yml up --build -d
 
       - name: Wait for services to be healthy
         run: |
-          echo "Waiting for services to be healthy..."
-          for i in {1..30}; do
-            STATUS=$(docker-compose -f docker-compose.prod.yml ps --format '{{.Service}} {{.Status}}')
-            echo "$STATUS"
-            UNHEALTHY=$(echo "$STATUS" | grep -v 'Up (healthy)' || true)
-            if [ -z "$UNHEALTHY" ]; then
-              echo "All services are healthy"
-              break
-            fi
-            if [ "$i" -eq 30 ]; then
-              echo "Services failed to become healthy" >&2
-              exit 1
-            fi
-            sleep 5
-          done
+          echo "Waiting for services to initialize..."
+          sleep 30 # Give services ample time to start and run healthchecks
+          docker-compose -f docker-compose.prod.yml ps
 
-      - name: Lint and Test Backend
+      - name: Run Backend Tests
+        run: docker-compose -f docker-compose.prod.yml exec -T main-api pytest
+
+      - name: Run Frontend Tests
+        run: docker-compose -f docker-compose.prod.yml exec -T frontend npm test
+
+      - name: Scan Frontend Vulnerabilities
+        run: docker-compose -f docker-compose.prod.yml exec -T frontend npm audit --audit-level=high
+
+      - name: Scan Backend Vulnerabilities
         run: |
-          docker-compose -f docker-compose.prod.yml exec -T main-api ruff format --check .
-          docker-compose -f docker-compose.prod.yml exec -T main-api ruff check .
-          docker-compose -f docker-compose.prod.yml exec -T main-api pytest
-          # Assuming transcription-worker has tests, if not this will fail gracefully
-          # docker-compose -f docker-compose.prod.yml exec -T transcription-worker ruff format --check .
-          # docker-compose -f docker-compose.prod.yml exec -T transcription-worker ruff check .
-          # docker-compose -f docker-compose.prod.yml exec -T transcription-worker pytest
+          docker-compose -f docker-compose.prod.yml exec -T main-api pip install pip-audit
+          docker-compose -f docker-compose.prod.yml exec -T main-api pip-audit -r requirements.txt
 
-      - name: Lint and Test Frontend
-        run: |
-          docker-compose -f docker-compose.prod.yml exec -T frontend npm run lint
-          docker-compose -f docker-compose.prod.yml exec -T frontend npm run test
-
-  build-and-push:
-    name: Build and Push Docker Images
+  build_and_push:
+    name: Build & Push Docker Images
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: test_and_scan
     runs-on: ubuntu-latest
-    needs: test-and-lint
-    if: github.event_name == 'push'
     steps:
-      - name: Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Get short SHA
-        id: sha
-        run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
-
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Build and push Frontend
-        uses: docker/build-push-action@v5
-        with:
-          context: ./frontend
-          push: true
-          tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/eva-frontend:${{ steps.sha.outputs.sha_short }}
-            ${{ secrets.DOCKERHUB_USERNAME }}/eva-frontend:latest
-
-      - name: Build and push Main API
-        uses: docker/build-push-action@v5
-        with:
-          context: ./services/main-api
-          push: true
-          tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/eva-main-api:${{ steps.sha.outputs.sha_short }}
-            ${{ secrets.DOCKERHUB_USERNAME }}/eva-main-api:latest
-
-      - name: Build and push WhatsApp Gateway
-        uses: docker/build-push-action@v5
-        with:
-          context: ./services/whatsapp-gateway
-          push: true
-          tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/eva-whatsapp-gateway:${{ steps.sha.outputs.sha_short }}
-            ${{ secrets.DOCKERHUB_USERNAME }}/eva-whatsapp-gateway:latest
-
-      - name: Build and push Transcription Worker
-        uses: docker/build-push-action@v5
-        with:
-          context: ./services/transcription-worker
-          push: true
-          tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/eva-transcription-worker:${{ steps.sha.outputs.sha_short }}
-            ${{ secrets.DOCKERHUB_USERNAME }}/eva-transcription-worker:latest
-
-      - name: Build and push Embedding Worker
-        uses: docker/build-push-action@v5
-        with:
-          context: ./services/embedding-worker
-          push: true
-          tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/eva-embedding-worker:${{ steps.sha.outputs.sha_short }}
-            ${{ secrets.DOCKERHUB_USERNAME }}/eva-embedding-worker:latest
-
-      - name: Build and push DLQ Monitor
-        uses: docker/build-push-action@v5
-        with:
-          context: ./services/dlq-monitor
-          push: true
-          tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/eva-dlq-monitor:${{ steps.sha.outputs.sha_short }}
-            ${{ secrets.DOCKERHUB_USERNAME }}/eva-dlq-monitor:latest
+      - name: Build and push services
+        run: |
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/eva-main-api:latest ./services/main-api && docker push ${{ secrets.DOCKERHUB_USERNAME }}/eva-main-api:latest
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/eva-whatsapp-gateway:latest ./services/whatsapp-gateway && docker push ${{ secrets.DOCKERHUB_USERNAME }}/eva-whatsapp-gateway:latest
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/eva-transcription-worker:latest ./services/transcription-worker && docker push ${{ secrets.DOCKERHUB_USERNAME }}/eva-transcription-worker:latest
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/eva-embedding-worker:latest ./services/embedding-worker && docker push ${{ secrets.DOCKERHUB_USERNAME }}/eva-embedding-worker:latest
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/eva-dlq-monitor:latest ./services/dlq-monitor && docker push ${{ secrets.DOCKERHUB_USERNAME }}/eva-dlq-monitor:latest
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/eva-frontend:latest ./frontend && docker push ${{ secrets.DOCKERHUB_USERNAME }}/eva-frontend:latest
 
   deploy:
     name: Deploy to Production
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build_and_push
     runs-on: ubuntu-latest
-    needs: build-and-push
-    if: github.event_name == 'push'
     steps:
-      - name: Get short SHA for tagging
-        id: sha
-        run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
-
-      - name: Deploy to server
+      - name: Deploy to production server
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            # IMPORTANT: Change this path to your project directory on the server
-            cd /home/ubuntu/eva-platform
+            set -e
+            cd /home/ubuntu/eva-project # IMPORTANT: Adjust to your project path
 
-            # Create production environment file from secrets
+            echo "Creating .env file from secrets..."
             cat << EOF > .env.prod
-            # Docker and Traefik
+            # This file is auto-generated by the CI/CD pipeline
             DOMAIN_NAME=${{ secrets.DOMAIN_NAME }}
             CERTBOT_EMAIL=${{ secrets.CERTBOT_EMAIL }}
-            DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}
-
-            # Image Tags
-            FRONTEND_TAG=${{ steps.sha.outputs.sha_short }}
-            MAIN_API_TAG=${{ steps.sha.outputs.sha_short }}
-            WHATSAPP_GATEWAY_TAG=${{ steps.sha.outputs.sha_short }}
-            TRANSCRIPTION_WORKER_TAG=${{ steps.sha.outputs.sha_short }}
-            EMBEDDING_WORKER_TAG=${{ steps.sha.outputs.sha_short }}
-            DLQ_MONITOR_TAG=${{ steps.sha.outputs.sha_short }}
-
-            # Redis
-            REDIS_HOST=redis
-            REDIS_PORT=6379
-
-            # Supabase
             SUPABASE_URL=${{ secrets.SUPABASE_URL }}
             SUPABASE_KEY=${{ secrets.SUPABASE_KEY }}
-            SUPABASE_SERVICE_KEY=${{ secrets.SUPABASE_SERVICE_KEY }}
-            NEXT_PUBLIC_SUPABASE_URL=${{ secrets.SUPABASE_URL }}
-            NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.SUPABASE_KEY }}
-
-            # AI Providers
+            NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+            NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
             GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }}
             DEEPSEEK_API_KEY=${{ secrets.DEEPSEEK_API_KEY }}
             OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
             OPENAI_EMBED_MODEL=text-embedding-3-large
-
-            # Cloudflare R2
             R2_ENDPOINT_URL=${{ secrets.R2_ENDPOINT_URL }}
             R2_BUCKET_NAME=${{ secrets.R2_BUCKET_NAME }}
             R2_ACCESS_KEY_ID=${{ secrets.R2_ACCESS_KEY_ID }}
             R2_SECRET_ACCESS_KEY=${{ secrets.R2_SECRET_ACCESS_KEY }}
-
-            # WhatsApp Gateway
             WHATSAPP_USER_ID=${{ secrets.WHATSAPP_USER_ID }}
-
-            # Frontend
-            FRONTEND_ORIGINS=https://${{ secrets.DOMAIN_NAME }}
-            NEXT_PUBLIC_API_URL=https://${{ secrets.DOMAIN_NAME }}/api/v1
-
-            # Main API
-            API_RATE_LIMIT=100
+            GRAFANA_ADMIN_PASSWORD=${{ secrets.GRAFANA_ADMIN_PASSWORD }}
+            FRONTEND_ORIGINS=https://\${{ secrets.DOMAIN_NAME }}
+            NEXT_PUBLIC_API_URL=https://\${{ secrets.DOMAIN_NAME }}/api/v1
             EOF
 
-            # Secure the environment file
-            chmod 600 .env.prod
-
-            # Pull latest images and restart services
             echo "Pulling latest images from Docker Hub..."
             docker-compose -f docker-compose.prod.yml pull
 
-            echo "Restarting services with the new images..."
-            docker-compose -f docker-compose.prod.yml up -d --remove-orphans
+            echo "Restarting all services..."
+            docker-compose -f docker-compose.prod.yml up -d
+
+            echo "Cleaning up old Docker images..."
+            docker image prune -af
+
+            echo "Deployment to production successful!"
