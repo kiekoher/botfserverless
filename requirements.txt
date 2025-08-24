@@ -1,3 +1,4 @@
 -r services/main-api/requirements.txt
 pydub==0.25.1
 pytest-asyncio==0.23.8
+prometheus-fastapi-instrumentator==7.0.0
