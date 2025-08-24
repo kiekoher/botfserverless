@@ -43,6 +43,7 @@ def get_current_user_id(request: Request) -> str:
             token,
             settings.supabase_jwt_secret,
             algorithms=["HS256"],
+            options={"verify_aud": False},
         )
     except InvalidTokenError as exc:
         raise HTTPException(status_code=401, detail="Invalid authentication token") from exc

@@ -10,6 +10,8 @@ from app.main import app
 def client(mocker):
     mock_redis = AsyncMock()
     mock_redis.ping.return_value = True
+    mock_redis.incr.return_value = 1
+    mock_redis.expire.return_value = True
     mocker.patch("app.main.redis_from_url", return_value=mock_redis)
     with TestClient(app) as c:
         yield c
