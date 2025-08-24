@@ -1,0 +1,4 @@
+# Run the backup script every day at 3:00 AM UTC.
+# Redirect stdout and stderr to the container's log stream.
+0 3 * * * /app/backup.sh >> /proc/1/fd/1 2>> /proc/1/fd/2
+# An empty line is required for the file to be valid.
