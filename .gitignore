@@ -29,6 +29,9 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 docker-compose-build.log
+# Build artefacts
+build.log
+services/transcription-worker/requirements-prod.txt
 
 # Docker data volumes
 # Ignorar el contenido de los volúmenes, pero mantener los directorios

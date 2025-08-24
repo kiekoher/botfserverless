@@ -115,10 +115,14 @@ async def rate_limit_middleware(request: Request, call_next):
     if auth_header and auth_header.startswith('Bearer '):
         token = auth_header.split(' ', 1)[1]
         try:
-            payload = jwt.decode(token, options={"verify_signature": False})
+            payload = jwt.decode(
+                token,
+                settings.supabase_jwt_secret,
+                algorithms=["HS256"],
+            )
             user_key = payload.get('sub', user_key)
-        except jwt.PyJWTError:
-            pass
+        except jwt.PyJWTError as exc:
+            logger.warning("Invalid JWT in rate limit middleware: %s", exc)
     redis = request.app.state.redis
     key = f'rate_limit:{user_key}:{ip}'
     try:

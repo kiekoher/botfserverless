@@ -1,4 +1,6 @@
 const { Client, LocalAuth } = require('whatsapp-web.js');
+const pino = require('pino');
+const logger = pino();
 
 // This healthcheck script is designed to verify the actual connection status
 // of the WhatsApp client. It uses the same session data as the main bot
@@ -8,7 +10,7 @@ const SESSION_PATH = process.env.WHATSAPP_SESSION_PATH || '/app/session';
 
 // Set a timeout for the entire healthcheck process to prevent it from hanging.
 const healthcheckTimeout = setTimeout(() => {
-    console.error('Healthcheck timed out after 10 seconds.');
+    logger.error('Healthcheck timed out after 10 seconds.');
     process.exit(1);
 }, 10000); // 10 seconds timeout
 
@@ -22,7 +24,7 @@ try {
         }
     });
 } catch (e) {
-    console.error('Failed to instantiate WhatsApp client:', e.message);
+    logger.error('Failed to instantiate WhatsApp client:', e.message);
     clearTimeout(healthcheckTimeout);
     process.exit(1);
 }
@@ -30,7 +32,7 @@ try {
 // The most reliable way to check health is to initialize the client and get its state.
 // We add a listener for the 'ready' event and a timeout.
 client.on('ready', () => {
-    console.log('Healthcheck: Client is ready.');
+    logger.info('Healthcheck: Client is ready.');
     clearTimeout(healthcheckTimeout);
     process.exit(0); // Success
 });
@@ -38,14 +40,14 @@ client.on('ready', () => {
 
 // Handle disconnection events during initialization
 client.on('disconnected', () => {
-    console.error('Healthcheck: Client is disconnected.');
+    logger.error('Healthcheck: Client is disconnected.');
     clearTimeout(healthcheckTimeout);
     process.exit(1); // Failure
 });
 
 // Initialize the client to check the connection status
 client.initialize().catch(err => {
-    console.error('Healthcheck: Client initialization failed.', err.message);
+    logger.error('Healthcheck: Client initialization failed.', err.message);
     clearTimeout(healthcheckTimeout);
     process.exit(1); // Failure
 });
@@ -56,16 +58,16 @@ setTimeout(async () => {
     try {
         const state = await client.getState();
         if (state === 'CONNECTED') {
-            console.log('Healthcheck: Client state is CONNECTED.');
+            logger.info('Healthcheck: Client state is CONNECTED.');
             clearTimeout(healthcheckTimeout);
             process.exit(0);
         } else {
-            console.error(`Healthcheck: Client state is '${state}'.`);
+            logger.error(`Healthcheck: Client state is '${state}'.`);
             clearTimeout(healthcheckTimeout);
             process.exit(1);
         }
     } catch (e) {
-        console.error('Healthcheck: Failed to get client state.', e.message);
+        logger.error('Healthcheck: Failed to get client state.', e.message);
         clearTimeout(healthcheckTimeout);
         process.exit(1);
     }

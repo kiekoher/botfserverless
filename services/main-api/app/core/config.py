@@ -15,6 +15,7 @@ class Settings:
     redis_port: int
     frontend_origins: str
     api_rate_limit: int
+    supabase_jwt_secret: str
 
 
 @lru_cache
@@ -27,6 +28,7 @@ def get_settings() -> Settings:
         "DEEPSEEK_API_KEY",
         "OPENAI_API_KEY",
         "FRONTEND_ORIGINS",
+        "SUPABASE_JWT_SECRET",
     ]
     missing = [var for var in required if not os.environ.get(var)]
     if missing:
@@ -44,4 +46,5 @@ def get_settings() -> Settings:
         redis_port=int(os.environ.get("REDIS_PORT", 6379)),
         frontend_origins=os.environ["FRONTEND_ORIGINS"],
         api_rate_limit=int(os.environ.get("API_RATE_LIMIT", 60)),
+        supabase_jwt_secret=os.environ["SUPABASE_JWT_SECRET"],
     )

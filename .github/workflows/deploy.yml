@@ -29,6 +29,9 @@ jobs:
       - name: Run Backend Tests
         run: docker-compose -f docker-compose.prod.yml exec -T main-api pytest
 
+      - name: Run DLQ Monitor Tests
+        run: docker-compose -f docker-compose.prod.yml exec -T dlq-monitor pytest
+
       - name: Run Frontend Tests
         run: docker-compose -f docker-compose.prod.yml exec -T frontend npm test
 
