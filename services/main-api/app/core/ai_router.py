@@ -1,4 +1,5 @@
 import logging
+from typing import Optional
 
 
 logger = logging.getLogger(__name__)
@@ -22,7 +23,15 @@ class AIRouter:
     async def _get_embedding(self, text: str) -> list[float]:
         return await self.openai_embedding_adapter.get_embedding(text)
 
-    async def route_query(self, user_id: str, query: str, history: list, task: str, agent_prompt: str = None, agent_guardrails: str = None) -> str:
+    async def route_query(
+        self,
+        user_id: str,
+        query: str,
+        history: list,
+        task: str,
+        agent_prompt: Optional[str] = None,
+        agent_guardrails: Optional[str] = None,
+    ) -> str:
         """
         Routes a query to the appropriate AI model based on the specified task,
         implementing the 'Santo Grial' architecture with a full RAG pipeline.
@@ -56,7 +65,8 @@ class AIRouter:
                 logger.info("No relevant document chunks found.")
 
             # 3. Construct the final prompt
-            full_prompt = f"{agent_prompt}\n\n{context}\n\nUser Query: {query}"
+            prompt_base = agent_prompt or ""
+            full_prompt = f"{prompt_base}\n\n{context}\n\nUser Query: {query}"
 
             if agent_guardrails:
                 full_prompt = f"Guardrails (must follow):\n{agent_guardrails}\n\n{full_prompt}"

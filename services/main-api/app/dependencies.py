@@ -1,6 +1,7 @@
 from fastapi import HTTPException, Request
 import time
 import jwt
+from jwt import InvalidTokenError
 
 from app.core.ai_router import AIRouter
 from app.infrastructure.deepseek_adapter import DeepSeekV2Adapter, DeepSeekChatAdapter
@@ -38,15 +39,20 @@ def get_current_user_id(request: Request) -> str:
 
     token = auth_header.split(" ", 1)[1]
     try:
-        payload = jwt.decode(token, options={"verify_signature": False})
-        exp = payload.get("exp")
-        if exp and exp < time.time():
-            raise HTTPException(status_code=401, detail="Token expired")
-        aud = payload.get("aud")
-        if aud and aud != "authenticated":
-            raise HTTPException(status_code=401, detail="Invalid audience")
-    except jwt.PyJWTError as exc:
+        payload = jwt.decode(
+            token,
+            settings.supabase_jwt_secret,
+            algorithms=["HS256"],
+        )
+    except InvalidTokenError as exc:
         raise HTTPException(status_code=401, detail="Invalid authentication token") from exc
+
+    exp = payload.get("exp")
+    if exp and exp < time.time():
+        raise HTTPException(status_code=401, detail="Token expired")
+    aud = payload.get("aud")
+    if aud and aud != "authenticated":
+        raise HTTPException(status_code=401, detail="Invalid audience")
 
     try:
         user = supabase_adapter.client.auth.get_user(token)

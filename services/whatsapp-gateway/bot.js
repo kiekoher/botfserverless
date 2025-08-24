@@ -61,7 +61,9 @@ async function connectRedis(retry = 0) {
     }
 }
 
-connectRedis().catch(err => logger.error(err));
+if (process.env.NODE_ENV !== 'test') {
+    connectRedis().catch(err => logger.error(err));
+}
 
 // S3 Client for R2
 const s3Client = new S3Client({
@@ -84,7 +86,9 @@ const metricsServer = http.createServer(async (req, res) => {
         res.end();
     }
 });
-metricsServer.listen(9100, () => logger.info('📊 Metrics server running on :9100/metrics'));
+if (process.env.NODE_ENV !== 'test') {
+    metricsServer.listen(9100, () => logger.info('📊 Metrics server running on :9100/metrics'));
+}
 
 // WhatsApp Client
 const SESSION_PATH = process.env.WHATSAPP_SESSION_PATH || '/app/session';
@@ -271,4 +275,8 @@ async function startRedisConsumer() {
     }
 }
 
-initializeClient();
+if (process.env.NODE_ENV !== 'test') {
+    initializeClient();
+}
+
+module.exports = { client };
