@@ -119,6 +119,7 @@ async def rate_limit_middleware(request: Request, call_next):
                 token,
                 settings.supabase_jwt_secret,
                 algorithms=["HS256"],
+                options={"verify_aud": False},
             )
             user_key = payload.get('sub', user_key)
         except jwt.PyJWTError as exc:
