@@ -13,6 +13,7 @@ from prometheus_fastapi_instrumentator import Instrumentator
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
+import jwt
 
 # === Imports del proyecto ===
 from app.core.use_cases.process_chat_message import ProcessChatMessage
@@ -109,8 +110,17 @@ Instrumentator().instrument(app).expose(app)
 @app.middleware("http")
 async def rate_limit_middleware(request: Request, call_next):
     ip = request.client.host
+    user_key = 'anon'
+    auth_header = request.headers.get('Authorization')
+    if auth_header and auth_header.startswith('Bearer '):
+        token = auth_header.split(' ', 1)[1]
+        try:
+            payload = jwt.decode(token, options={"verify_signature": False})
+            user_key = payload.get('sub', user_key)
+        except jwt.PyJWTError:
+            pass
     redis = request.app.state.redis
-    key = f'rate_limit:{ip}'
+    key = f'rate_limit:{user_key}:{ip}'
     try:
         current = await redis.incr(key)
         if current == 1:

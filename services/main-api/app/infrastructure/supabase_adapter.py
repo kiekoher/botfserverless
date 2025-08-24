@@ -228,3 +228,92 @@ class SupabaseAdapter:
         except Exception as e:
             logger.error("Error deleting document %s: %s", document_id, e)
             return False
+
+    async def get_billing_info(self, user_id: str):
+        """Fetch billing info for a user."""
+        try:
+            query = (
+                self.client.table("billing_records")
+                .select("plan, credits_remaining, renewal_date")
+                .eq("user_id", user_id)
+                .limit(1)
+                .single()
+            )
+            response = await self._execute(query)
+            data = response.data or {}
+        except Exception as e:
+            logger.error("Error fetching billing info for user %s: %s", user_id, e)
+            data = {}
+        return {
+            "user_id": user_id,
+            "plan": data.get("plan", "trial"),
+            "credits_remaining": data.get("credits_remaining", 0),
+            "renewal_date": data.get("renewal_date"),
+        }
+
+    async def get_quality_metrics(self, user_id: str):
+        """Fetch quality metrics for a user."""
+        try:
+            query = (
+                self.client.table("quality_metrics")
+                .select("conversations_reviewed, avg_response_time_sec, csat")
+                .eq("user_id", user_id)
+                .limit(1)
+                .single()
+            )
+            response = await self._execute(query)
+            data = response.data or {}
+        except Exception as e:
+            logger.error("Error fetching quality metrics for user %s: %s", user_id, e)
+            data = {}
+        return {
+            "user_id": user_id,
+            "conversations_reviewed": data.get("conversations_reviewed", 0),
+            "avg_response_time_sec": data.get("avg_response_time_sec", 0),
+            "csat": data.get("csat", 0.0),
+        }
+
+    async def get_opportunity_briefs(self, user_id: str):
+        """Fetch opportunity briefs for a user."""
+        try:
+            query = (
+                self.client.table("opportunity_briefs")
+                .select("*")
+                .eq("user_id", user_id)
+            )
+            response = await self._execute(query)
+            data = response.data or []
+        except Exception as e:
+            logger.error("Error fetching opportunity briefs for user %s: %s", user_id, e)
+            data = []
+        return {"user_id": user_id, "opportunities": data}
+
+    async def get_performance_log(self, user_id: str):
+        """Fetch performance logs for a user."""
+        try:
+            query = (
+                self.client.table("performance_logs")
+                .select("*")
+                .eq("user_id", user_id)
+            )
+            response = await self._execute(query)
+            data = response.data or []
+        except Exception as e:
+            logger.error("Error fetching performance log for user %s: %s", user_id, e)
+            data = []
+        return {"user_id": user_id, "logs": data}
+
+    async def get_executive_summaries(self, user_id: str):
+        """Fetch executive summaries for a user."""
+        try:
+            query = (
+                self.client.table("executive_summaries")
+                .select("*")
+                .eq("user_id", user_id)
+            )
+            response = await self._execute(query)
+            data = response.data or []
+        except Exception as e:
+            logger.error("Error fetching executive summaries for user %s: %s", user_id, e)
+            data = []
+        return {"user_id": user_id, "summaries": data}

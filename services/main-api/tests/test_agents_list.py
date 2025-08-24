@@ -20,7 +20,7 @@ def client(mock_redis_ping):
         yield test_client
 
 
-def test_list_agents_for_user(client, mocker):
+def test_list_agents_for_user(client, mocker, auth_header):
     mock_user = SimpleNamespace(user=SimpleNamespace(id="user-123"))
     mocker.patch(
         "app.dependencies.supabase_adapter.client.auth.get_user",
@@ -34,7 +34,7 @@ def test_list_agents_for_user(client, mocker):
     mocker.patch("app.dependencies.supabase_adapter", mock_adapter)
 
     response = client.get(
-        "/api/v1/agents", headers={"Authorization": "Bearer token"}
+        "/api/v1/agents", headers=auth_header("user-123")
     )
     assert response.status_code == 200
     assert response.json() == [
