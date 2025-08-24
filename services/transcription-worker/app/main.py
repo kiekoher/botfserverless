@@ -83,7 +83,6 @@ async def create_redis_client(retry=0):
 def initialize_external_clients():
     """Initializes non-async clients. Can be run in an executor."""
     global s3_client, whisper_model
-    # ... (rest of the function is the same)
     for attempt in range(5):
         try:
             s3_client = boto3.client(
@@ -122,7 +121,6 @@ def transcribe_audio_sync(file_path):
     """Transcribes the audio file at the given path using Whisper."""
     if not whisper_model:
         raise Exception("Whisper model not initialized.")
-    # ... (rest of the function is the same)
     wav_path = None
     try:
         # Convert OGG to WAV, which is preferred by Whisper
@@ -159,7 +157,6 @@ async def setup_redis(redis_client: Redis):
 
 async def process_message_with_retry(redis_client: Redis, message_id, message_data):
     """Process a message with a retry mechanism."""
-    # ... (rest of the function is the same)
     for attempt in range(MAX_RETRIES):
         try:
             logger.info(

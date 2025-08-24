@@ -24,6 +24,8 @@ REDIS_PORT = int(os.environ.get("REDIS_PORT", 6379))
 STREAM_IN = "events:new_document"
 CONSUMER_GROUP = "group:embedding-worker"
 CONSUMER_NAME = f"consumer:embedding-worker-{os.getenv('HOSTNAME', '1')}"
+DEAD_LETTER_QUEUE = "events:dead_letter_queue"
+MAX_RETRIES = 3
 
 def create_redis_client(retry=0):
     delay = min(2 ** retry, 30)
@@ -174,48 +176,62 @@ def main():
 
             message_id = response[0][1][0][0]
             message_data = response[0][1][0][1]
-            doc_id = message_data.get("document_id")
-            storage_path = message_data.get("storage_path")
-            user_id = message_data.get("user_id")
 
-            logger.info("Processing document %s from %s", doc_id, storage_path)
-            update_document_status(doc_id, "processing")
-
-            try:
-                # 1. Get text from document
-                text_content = get_text_from_storage(storage_path)
-
-                # 2. Split text into chunks
-                text_chunks = chunk_text(text_content)
-
-                # 3. Get embeddings for chunks
-                embeddings = get_embeddings(text_chunks)
-
-                # 4. Save to Supabase
-                records_to_insert = []
-                for i, chunk in enumerate(text_chunks):
-                    records_to_insert.append({
-                        "document_id": doc_id,
-                        "user_id": user_id,
-                        "content": chunk,
-                        "embedding": embeddings[i]
-                    })
-
-                supabase.table("document_chunks").insert(records_to_insert).execute()
-                logger.info("Successfully inserted %d chunks for document %s", len(records_to_insert), doc_id)
-
-                # 5. Mark as complete
-                update_document_status(doc_id, "completed")
-
-            except Exception as e:
-                logger.error("Failed to process document %s: %s", doc_id, e)
-                update_document_status(doc_id, "failed")
-
+            process_document(message_data)
             redis_client.xack(STREAM_IN, CONSUMER_GROUP, message_id)
 
         except Exception as e:
             logger.error("Critical error in worker loop: %s", e)
             time.sleep(5)
+
+
+def process_document(message_data: dict) -> bool:
+    """Process a single document message."""
+    doc_id = message_data.get("document_id")
+    storage_path = message_data.get("storage_path")
+    user_id = message_data.get("user_id")
+
+    logger.info("Processing document %s from %s", doc_id, storage_path)
+    update_document_status(doc_id, "processing")
+
+    try:
+        text_content = get_text_from_storage(storage_path)
+        text_chunks = chunk_text(text_content)
+        embeddings = get_embeddings(text_chunks)
+
+        records_to_insert = []
+        for i, chunk in enumerate(text_chunks):
+            records_to_insert.append(
+                {
+                    "document_id": doc_id,
+                    "user_id": user_id,
+                    "content": chunk,
+                    "embedding": embeddings[i],
+                }
+            )
+
+        supabase.table("document_chunks").insert(records_to_insert).execute()
+        logger.info(
+            "Successfully inserted %d chunks for document %s",
+            len(records_to_insert),
+            doc_id,
+        )
+        update_document_status(doc_id, "completed")
+        return True
+    except Exception as e:
+        logger.error("Failed to process document %s: %s", doc_id, e)
+        update_document_status(doc_id, "failed")
+        dlq_payload = message_data.copy()
+        dlq_payload["error"] = str(e)
+        dlq_payload["error_service"] = "embedding-worker"
+        dlq_payload["error_timestamp"] = str(time.time())
+        redis_client.xadd(
+            DEAD_LETTER_QUEUE,
+            dlq_payload,
+            maxlen=10000,
+            approximate=True,
+        )
+        return False
 
 if __name__ == "__main__":
     main()
