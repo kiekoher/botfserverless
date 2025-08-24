@@ -1,9 +1,27 @@
+# Ignore Git files
+.git
+.gitignore
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Python artifacts
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
-.env
-.env.*
-venv/
 .venv/
-.git
+venv/
+.pytest_cache/
+
+# Tests
+tests/
+
+# Misc
+*.log
+.DS_Store
+.vscode/
+.idea/
+*.swp

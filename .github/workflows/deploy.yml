@@ -21,8 +21,21 @@ jobs:
 
       - name: Wait for services to be healthy
         run: |
-          echo "Waiting for services to start..."
-          sleep 30
+          echo "Waiting for services to be healthy..."
+          for i in {1..30}; do
+            STATUS=$(docker compose -f docker-compose.prod.yml ps --format '{{.Service}} {{.Status}}')
+            echo "$STATUS"
+            UNHEALTHY=$(echo "$STATUS" | grep -v 'Up (healthy)' || true)
+            if [ -z "$UNHEALTHY" ]; then
+              echo "All services are healthy"
+              break
+            fi
+            if [ "$i" -eq 30 ]; then
+              echo "Services failed to become healthy" >&2
+              exit 1
+            fi
+            sleep 5
+          done
 
       - name: Lint and Test Backend
         run: |
@@ -51,8 +64,21 @@ jobs:
 
       - name: Wait for services to be healthy
         run: |
-          echo "Waiting for services to start..."
-          sleep 30
+          echo "Waiting for services to be healthy..."
+          for i in {1..30}; do
+            STATUS=$(docker compose -f docker-compose.prod.yml ps --format '{{.Service}} {{.Status}}')
+            echo "$STATUS"
+            UNHEALTHY=$(echo "$STATUS" | grep -v 'Up (healthy)' || true)
+            if [ -z "$UNHEALTHY" ]; then
+              echo "All services are healthy"
+              break
+            fi
+            if [ "$i" -eq 30 ]; then
+              echo "Services failed to become healthy" >&2
+              exit 1
+            fi
+            sleep 5
+          done
 
       - name: Run End-to-End Test
         run: >
