@@ -8,12 +8,15 @@ import logging
 from PyPDF2 import PdfReader
 from supabase import create_client, Client
 from chunking import chunk_text
+from pathlib import Path
 
 # --- Initialization ---
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 logger.info("🤖 Embedding Worker Initializing...")
 
+# Healthcheck file
+HEALTHCHECK_FILE = Path("/tmp/health/last_processed")
 
 # Redis with reconnection
 REDIS_HOST = os.environ.get("REDIS_HOST", "redis")
@@ -84,6 +87,15 @@ EMBEDDING_MODEL = os.environ.get("OPENAI_EMBED_MODEL", "text-embedding-3-large")
 
 # --- Helper Functions ---
 
+def touch_healthcheck_file():
+    """Updates the modification time of the healthcheck file."""
+    try:
+        HEALTHCHECK_FILE.parent.mkdir(parents=True, exist_ok=True)
+        HEALTHCHECK_FILE.touch()
+    except Exception as e:
+        logger.warning("Could not touch healthcheck file: %s", e)
+
+
 def update_document_status(doc_id: str, status: str):
     try:
         supabase.table("documents").update({"status": status}).eq("id", doc_id).execute()
@@ -150,6 +162,10 @@ def main():
     logger.info("👂 Worker started. Listening for events on '%s'...", STREAM_IN)
     while True:
         try:
+            # Touch the healthcheck file at the beginning of each loop iteration
+            # to signal that the worker is alive and polling.
+            touch_healthcheck_file()
+
             response = redis_client.xreadgroup(
                 CONSUMER_GROUP, CONSUMER_NAME, {STREAM_IN: ">"}, count=1, block=5000
             )

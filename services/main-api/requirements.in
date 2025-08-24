@@ -1,0 +1,10 @@
+-c requirements-prod.txt
+-r requirements-prod.in
+
+# Dev tools
+pytest
+pytest-cov
+pytest-mock
+ruff
+coverage
+watchfiles

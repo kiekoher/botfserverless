@@ -8,6 +8,7 @@ from redis.asyncio import Redis
 from redis.exceptions import ResponseError
 from faster_whisper import WhisperModel
 from pydub import AudioSegment
+from pathlib import Path
 
 # --- Configuration ---
 REDIS_HOST = os.getenv("REDIS_HOST", "redis")
@@ -16,21 +17,8 @@ STREAM_IN = "events:new_message"
 STREAM_OUT = "events:transcribed_message"
 CONSUMER_GROUP = "group:transcription-workers"
 CONSUMER_NAME = f"consumer:transcription-worker-{os.getpid()}"
+HEALTHCHECK_FILE = Path("/tmp/health/last_processed")
 
-
-# Redis with reconnection
-
-
-async def create_redis_client(retry=0):
-    delay = min(2 ** retry, 30)
-    try:
-        client = Redis.from_url(REDIS_URL, decode_responses=True)
-        await client.ping()
-        return client
-    except Exception as e:
-        logger.error("Redis connection error: %s", e)
-        await asyncio.sleep(delay)
-        return await create_redis_client(retry + 1)
 # R2 Configuration
 def load_r2_config() -> dict[str, str]:
     required = [
@@ -59,8 +47,8 @@ DEAD_LETTER_QUEUE = "events:dead_letter_queue"
 MAX_RETRIES = 3
 
 # Whisper Model Configuration
-MODEL_SIZE = "base"  # Use "base", "small", "medium", "large-v2"
-COMPUTE_TYPE = "int8" # "float16", "int8", etc.
+MODEL_SIZE = "base"
+COMPUTE_TYPE = "int8"
 DEVICE = "cpu"
 
 # --- Initialize Clients ---
@@ -71,11 +59,31 @@ logger.info("🤖 Transcription Worker starting...")
 s3_client = None
 whisper_model = None
 
+# --- Helper Functions ---
 
+async def touch_healthcheck_file():
+    """Updates the modification time of the healthcheck file."""
+    try:
+        HEALTHCHECK_FILE.parent.mkdir(parents=True, exist_ok=True)
+        HEALTHCHECK_FILE.touch()
+    except Exception as e:
+        logger.warning("Could not touch healthcheck file: %s", e)
+
+async def create_redis_client(retry=0):
+    delay = min(2 ** retry, 30)
+    try:
+        client = Redis.from_url(REDIS_URL, decode_responses=True)
+        await client.ping()
+        return client
+    except Exception as e:
+        logger.error("Redis connection error: %s", e)
+        await asyncio.sleep(delay)
+        return await create_redis_client(retry + 1)
 
 def initialize_external_clients():
     """Initializes non-async clients. Can be run in an executor."""
     global s3_client, whisper_model
+    # ... (rest of the function is the same)
     for attempt in range(5):
         try:
             s3_client = boto3.client(
@@ -99,7 +107,7 @@ def initialize_external_clients():
 
     except Exception as e:
         logger.error("❌ Failed to initialize Whisper model: %s", e)
-# --- Helper Functions (Blocking) ---
+
 def download_audio_from_r2_sync(file_key):
     """Downloads an audio file from R2 and returns its local path."""
     if not s3_client:
@@ -110,12 +118,11 @@ def download_audio_from_r2_sync(file_key):
     logger.info("Downloaded '%s' to '%s'", file_key, temp_local_path)
     return temp_local_path
 
-
 def transcribe_audio_sync(file_path):
     """Transcribes the audio file at the given path using Whisper."""
     if not whisper_model:
         raise Exception("Whisper model not initialized.")
-
+    # ... (rest of the function is the same)
     wav_path = None
     try:
         # Convert OGG to WAV, which is preferred by Whisper
@@ -137,8 +144,6 @@ def transcribe_audio_sync(file_path):
         if wav_path and os.path.exists(wav_path):
             os.remove(wav_path)
 
-
-# --- Main Async Logic ---
 async def setup_redis(redis_client: Redis):
     """Create consumer group if it doesn't exist."""
     try:
@@ -152,9 +157,9 @@ async def setup_redis(redis_client: Redis):
         else:
             raise
 
-
 async def process_message_with_retry(redis_client: Redis, message_id, message_data):
     """Process a message with a retry mechanism."""
+    # ... (rest of the function is the same)
     for attempt in range(MAX_RETRIES):
         try:
             logger.info(
@@ -168,12 +173,10 @@ async def process_message_with_retry(redis_client: Redis, message_id, message_da
 
             if message_data.get("mediaKey"):
                 logger.info("Message has media, attempting transcription...")
-                # Run blocking I/O in a thread pool
                 local_path = await asyncio.to_thread(
                     download_audio_from_r2_sync, message_data["mediaKey"]
                 )
                 if local_path:
-                    # Run CPU-bound/blocking transcription in a thread pool
                     body_text = await asyncio.to_thread(
                         transcribe_audio_sync, local_path
                     )
@@ -214,10 +217,8 @@ async def process_message_with_retry(redis_client: Redis, message_id, message_da
             await asyncio.sleep(2**attempt)
     return False
 
-
 async def main():
     """Main function to set up clients and run the consumer loop."""
-    # Initialize blocking clients in an executor to not block the event loop on startup
     await asyncio.to_thread(initialize_external_clients)
     if not s3_client or not whisper_model:
         logger.error("Cannot start worker without external clients. Exiting.")
@@ -229,6 +230,9 @@ async def main():
     logger.info("Starting to listen for messages...")
     while True:
         try:
+            # Touch healthcheck file to show the process is alive and looping
+            await touch_healthcheck_file()
+
             response = await redis_client.xreadgroup(
                 CONSUMER_GROUP, CONSUMER_NAME, {STREAM_IN: ">"}, count=1, block=5000
             )
@@ -261,7 +265,6 @@ async def main():
         except Exception as e:
             logger.error("A critical error occurred in main loop: %s", e)
             await asyncio.sleep(5)
-
 
 if __name__ == "__main__":
     asyncio.run(main())

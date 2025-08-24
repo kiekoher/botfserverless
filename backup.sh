@@ -1,64 +1,108 @@
 #!/bin/bash
 set -e
+set -o pipefail
 
-# --- Configuración ---
-# Directorio donde se guardarán los backups temporalmente
-BACKUP_DIR="/tmp/eva_backups"
-# Nombre del proyecto de Docker Compose (el nombre del directorio del proyecto)
-# Este prefijo se usa en los nombres de los volúmenes. Cámbialo si es necesario.
-PROJECT_NAME="eva"
-# Ruta al archivo docker-compose.prod.yml
-DOCKER_COMPOSE_FILE="$(pwd)/docker-compose.prod.yml"
-# Configuración para subida a Cloudflare R2 (opcional)
-R2_BUCKET_NAME="your-r2-bucket-for-backups" # CAMBIAR: El nombre de tu bucket de R2
-R2_ENDPOINT_URL="your-r2-endpoint-url" # CAMBIAR: El endpoint de tu R2
+# --- Configuration ---
+# Directory on the host where backups will be stored.
+BACKUP_DIR="/home/ubuntu/eva_backups"
+# Number of old backups to keep.
+KEEP_BACKUPS=7
+# (Optional) Healthchecks.io or other monitoring service URL to ping on success.
+HEALTHCHECK_URL="" # e.g., "https://hc-ping.com/YOUR_CHECK_UUID"
+# (Optional) Cloudflare R2 credentials for off-site backups.
+# Ensure rclone is configured on the server with a remote named 'r2'.
+R2_REMOTE_NAME="r2"
+R2_BUCKET_PATH="eva-backups" # The bucket and folder path, e.g., "my-bucket/eva-backups"
 
-# --- Script ---
-echo "Iniciando proceso de backup..."
-mkdir -p $BACKUP_DIR
-TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
-BACKUP_FILENAME="eva_volumes_backup_$TIMESTAMP.tar.gz"
-BACKUP_FULL_PATH="$BACKUP_DIR/$BACKUP_FILENAME"
+# --- Script Logic ---
+echo "---"
+echo "Starting backup for project EVA at $(date)"
 
-# Volúmenes a respaldar
-REDIS_VOLUME="${PROJECT_NAME}_redis_data"
-WHATSAPP_VOLUME="${PROJECT_NAME}_whatsapp_session_prod"
+# Ensure backup directory exists
+mkdir -p "$BACKUP_DIR"
 
-# Verificar que el archivo de compose existe
-if [ ! -f "$DOCKER_COMPOSE_FILE" ]; then
-    echo "Error: El archivo docker-compose.prod.yml no se encuentra en $DOCKER_COMPOSE_FILE"
+# Define Docker volumes to back up. These must match the volume names in docker-compose.
+# The script will look for volumes in the standard Docker directory.
+# Note: Project name is derived from the container names (e.g., eva_redis_prod -> eva)
+PROJECT_NAME=$(docker ps --format '{{.Names}}' | grep '_redis_prod' | sed 's/_redis_prod//')
+if [ -z "$PROJECT_NAME" ]; then
+    echo "ERROR: Could not determine project name from running containers. Expected a container like 'eva_redis_prod'."
     exit 1
 fi
+echo "Detected project name: $PROJECT_NAME"
 
-echo "Deteniendo los servicios con estado: whatsapp-gateway y redis..."
-docker-compose -f $DOCKER_COMPOSE_FILE stop whatsapp-gateway redis
+DOCKER_VOLUMES_PATH="/var/lib/docker/volumes"
+VOLUMES_TO_BACKUP=(
+  "${PROJECT_NAME}_redis_data"
+  "${PROJECT_NAME}_whatsapp_session_prod"
+  "${PROJECT_NAME}_traefik_data"
+  "${PROJECT_NAME}_prometheus_data"
+  "${PROJECT_NAME}_alertmanager_data"
+  "${PROJECT_NAME}_grafana_data"
+)
 
-echo "Creando backup comprimido de los volúmenes..."
-# Usamos 'docker volume inspect' para obtener la ruta real de los volúmenes en el host
-REDIS_PATH=$(docker volume inspect --format '{{ .Mountpoint }}' $REDIS_VOLUME)
-WHATSAPP_PATH=$(docker volume inspect --format '{{ .Mountpoint }}' $WHATSAPP_VOLUME)
+# --- Pre-Backup Actions ---
+echo "Forcing Redis to save data to disk (BGSAVE)..."
+# Send a BGSAVE command to Redis to ensure data is flushed to disk without blocking.
+docker exec "${PROJECT_NAME}_redis_prod" redis-cli BGSAVE
+echo "Waiting a few seconds for BGSAVE to initiate..."
+sleep 5
 
-tar -czf $BACKUP_FULL_PATH -C $REDIS_PATH . -C $WHATSAPP_PATH .
+# --- Create Backup Archive ---
+BACKUP_FILENAME="${PROJECT_NAME}_$(date +%Y-%m-%d_%H-%M-%S).tar.gz"
+BACKUP_FULL_PATH="$BACKUP_DIR/$BACKUP_FILENAME"
 
-echo "Backup creado exitosamente en: $BACKUP_FULL_PATH"
+echo "Creating tarball of Docker volumes..."
+# Build the list of volume paths to include in the tar command.
+VOLUME_PATHS=()
+for vol in "${VOLUMES_TO_BACKUP[@]}"; do
+  if docker volume inspect "$vol" &> /dev/null; then
+    # It's critical to use the _data subdirectory within the volume path
+    VOLUME_PATHS+=("--directory=${DOCKER_VOLUMES_PATH}/${vol}" "_data")
+  else
+    echo "WARNING: Volume '$vol' not found. Skipping."
+  fi
+done
 
-echo "Reiniciando los servicios..."
-docker-compose -f $DOCKER_COMPOSE_FILE start whatsapp-gateway redis
+if [ ${#VOLUME_PATHS[@]} -eq 0 ]; then
+  echo "ERROR: No volumes found to back up. Aborting."
+  exit 1
+fi
 
-echo "Proceso de backup local completado."
+# Create a compressed tarball of the specified volumes.
+if tar --create --gzip --file "$BACKUP_FULL_PATH" "${VOLUME_PATHS[@]}"; then
+  echo "Successfully created backup: $BACKUP_FULL_PATH"
+else
+  echo "ERROR: Failed to create backup tarball."
+  exit 1
+fi
 
-# --- Subida a Cloudflare R2 (Opcional) ---
-# Descomenta las siguientes líneas y configura las variables de arriba
-# y las credenciales de AWS/R2 en tu entorno para habilitar la subida.
-# echo "Intentando subir el backup a Cloudflare R2..."
-# export AWS_ACCESS_KEY_ID="YOUR_R2_ACCESS_KEY_ID"
-# export AWS_SECRET_ACCESS_KEY="YOUR_R2_SECRET_ACCESS_KEY"
-# aws s3 cp $BACKUP_FULL_PATH s3://$R2_BUCKET_NAME/ --endpoint-url $R2_ENDPOINT_URL
-# echo "Subida completada."
+# --- Off-site Backup (Optional) ---
+if command -v rclone &> /dev/null && [ -n "$R2_BUCKET_PATH" ]; then
+  echo "Uploading backup to R2 remote '$R2_REMOTE_NAME'..."
+  if rclone copyto "$BACKUP_FULL_PATH" "${R2_REMOTE_NAME}:${R2_BUCKET_PATH}/${BACKUP_FILENAME}" --progress; then
+    echo "Successfully uploaded backup to R2."
+  else
+    echo "WARNING: Failed to upload backup to R2. The local backup is still available."
+    # Depending on policy, you might want this to be a fatal error (exit 1).
+  fi
+else
+  echo "Skipping off-site backup (rclone not found or R2_BUCKET_PATH not set)."
+fi
 
-# Limpieza de backups locales antiguos (ej. mantener los últimos 7)
-echo "Limpiando backups locales antiguos..."
-find $BACKUP_DIR -name "eva_volumes_backup_*.tar.gz" -type f -mtime +7 -delete
-echo "Limpieza completada."
+# --- Clean Up Old Local Backups ---
+echo "Cleaning up old local backups (keeping last $KEEP_BACKUPS)..."
+# Find and delete backups in the backup directory that are older than the N most recent ones.
+ls -1t "$BACKUP_DIR" | grep ".tar.gz" | tail -n +$(($KEEP_BACKUPS + 1)) | while read -r old_backup; do
+  echo "Deleting old backup: $old_backup"
+  rm -- "$BACKUP_DIR/$old_backup"
+done
 
-echo "¡Proceso de backup finalizado con éxito!"
+# --- Ping Healthcheck URL (Optional) ---
+if [ -n "$HEALTHCHECK_URL" ]; then
+  echo "Pinging healthcheck URL..."
+  curl -fsS -m 10 --retry 5 "$HEALTHCHECK_URL" > /dev/null || echo "WARNING: Failed to ping healthcheck URL."
+fi
+
+echo "Backup process completed successfully at $(date)."
+echo "----------------------------------------------------"

@@ -1,25 +1,47 @@
 global:
-  resolve_timeout: 5m
-  slack_api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK' # IMPORTANT: Replace with your Slack webhook URL
+  # The default Slack API URL. This can be overridden in the receiver.
+  # It's recommended to set the actual URL in the receiver configuration.
+  slack_api_url: '<YOUR_SLACK_WEBHOOK_URL_HERE>'
 
 route:
-  receiver: 'slack-notifications'
+  # The root route. All alerts enter here.
   group_by: ['alertname', 'job']
   group_wait: 30s
   group_interval: 5m
-  repeat_interval: 1h
+  repeat_interval: 4h
+  # The default receiver for alerts that don't match any specific routes.
+  receiver: 'slack-notifications'
+
+  # Sub-routes can be defined here for more specific routing.
+  # For example, sending database alerts to a dba-team receiver.
+  # routes:
+  #   - match:
+  #       severity: 'critical'
+  #     receiver: 'pager-duty-notifications'
 
 receivers:
   - name: 'slack-notifications'
     slack_configs:
-      - channel: '#alerts' # IMPORTANT: Change to your alerts channel
+      # - channel: '#eva-alerts' # Your Slack channel name
+      #   send_resolved: true
+      #   title: '[{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}] {{ .CommonLabels.alertname }} for {{ .CommonLabels.job }}'
+      #   text: >-
+      #     {{ range .Alerts }}
+      #       *Alert:* {{ .Annotations.summary }} - `{{ .Labels.severity }}`
+      #       *Description:* {{ .Annotations.description }}
+      #       *Details:*
+      #       {{ range .Labels.SortedPairs }} • *{{ .Name }}:* `{{ .Value }}`
+      #       {{ end }}
+      #     {{ end }}
+      - channel: '#eva-alerts' # CAMBIAR: El nombre de tu canal de Slack
+        # La URL del webhook de Slack debe ser proporcionada como un secreto o variable de entorno.
+        # Por ahora, la dejamos aquí como un placeholder. En un entorno más seguro,
+        # se podría usar templating para inyectarla desde un archivo de secretos.
+        # api_url: '<YOUR_SLACK_WEBHOOK_URL_HERE>'
         send_resolved: true
-        title: '[{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}] {{ .CommonLabels.alertname }}'
-        text: >-
-          {{ range .Alerts }}
-          *Alert:* {{ .Annotations.summary }} - `{{ .Labels.severity }}`
-          *Description:* {{ .Annotations.description }}
-          *Details:*
-          {{ range .Labels.SortedPairs }} • *{{ .Name }}:* `{{ .Value }}`
-          {{ end }}
-          {{ end }}
+        icon_emoji: ':loudspeaker:'
+        title: '{{ template "slack.default.title" . }}'
+        text: '{{ template "slack.default.text" . }}'
+
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'

@@ -14,31 +14,25 @@ RUN npm ci
 # Copy the rest of the application source code
 COPY . .
 
-# Declare build arguments that will be passed from docker-compose.yml
-ARG NEXT_PUBLIC_SUPABASE_URL
-ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-# Set them as environment variables FOR THE BUILD PROCESS
-ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
-ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
-
 # Build the application
 # The `output: 'standalone'` in next.config.js will create a .next/standalone folder
-RUN npm run build && npm prune --production
+# Note: Build args are passed in via the docker-compose file, no need to declare them here again
+# if they are only used during the build.
+RUN npm run build
 
 # Stage 2: Production image - using the standalone output
-# Use the same Node.js version for consistency
 FROM node:20-alpine
 
 WORKDIR /app
 
-# --- MEJORA IMPLEMENTADA ---
-# Se instala netcat para que el healthcheck basado en `nc` funcione correctamente.
-RUN apk add --no-cache wget netcat-openbsd
+# Install curl, which is used by the healthcheck in docker-compose.prod.yml
+RUN apk add --no-cache curl
 
 # Copy the standalone output from the builder stage.
 # This includes a minimal server.js, node_modules, and required .next files.
 COPY --from=builder /app/.next/standalone ./
+# Copy the public folder for static assets like images
+COPY --from=builder /app/public ./public
 
 # Expose the port the app runs on
 EXPOSE 3000
@@ -48,4 +42,3 @@ USER node
 
 # Start the application using the standalone server
 CMD ["node", "server.js"]
-

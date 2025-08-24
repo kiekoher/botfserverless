@@ -1,0 +1,7 @@
+redis[hiredis]
+supabase
+boto3
+openai
+tiktoken
+python-dotenv
+PyPDF2

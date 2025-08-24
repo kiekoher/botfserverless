@@ -1,7 +1,9 @@
 import asyncio
 import logging
 import os
+import json
 from redis.asyncio import Redis
+from pathlib import Path
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -11,6 +13,16 @@ REDIS_URL = f"redis://{REDIS_HOST}:6379"
 DLQ_STREAM = "events:dead_letter_queue"
 CONSUMER_GROUP = "group:dlq-monitor"
 CONSUMER_NAME = f"consumer:dlq-monitor-{os.getpid()}"
+
+HEALTHCHECK_FILE = Path("/tmp/health/last_processed")
+
+async def touch_healthcheck_file():
+    """Updates the modification time of the healthcheck file."""
+    try:
+        HEALTHCHECK_FILE.parent.mkdir(parents=True, exist_ok=True)
+        HEALTHCHECK_FILE.touch()
+    except Exception as e:
+        logger.warning("Could not touch healthcheck file: %s", e)
 
 async def setup(redis: Redis):
     try:
@@ -22,12 +34,13 @@ async def setup(redis: Redis):
         else:
             raise
 
-import json
-
 async def handle_messages(redis: Redis):
     logger.info("Listening for DLQ messages on stream '%s'", DLQ_STREAM)
     while True:
         try:
+            # Signal that the worker is alive and polling
+            await touch_healthcheck_file()
+
             response = await redis.xreadgroup(
                 CONSUMER_GROUP, CONSUMER_NAME, {DLQ_STREAM: ">"}, count=10, block=5000
             )
