@@ -1,9 +1,38 @@
+import importlib.util
 import os
 import sys
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "..", "app"))
-import main
+os.environ.setdefault("R2_ENDPOINT_URL", "http://example.com")
+os.environ.setdefault("R2_ACCESS_KEY_ID", "key")
+os.environ.setdefault("R2_SECRET_ACCESS_KEY", "secret")
+os.environ.setdefault("R2_BUCKET_NAME", "bucket")
+
+spec = importlib.util.spec_from_file_location(
+    "embedding_worker_main",
+    os.path.abspath(os.path.join(os.path.dirname(__file__), "../app/main.py")),
+)
+main = importlib.util.module_from_spec(spec)
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../app")))
+
+mock_redis = Mock()
+mock_boto3 = Mock()
+mock_openai = Mock(return_value=Mock())
+mock_supabase_module = Mock(create_client=Mock(return_value=Mock()), Client=Mock)
+mock_pypdf2 = Mock(PdfReader=Mock())
+
+with patch.dict(
+    "sys.modules",
+    {
+        "redis": Mock(Redis=Mock(return_value=mock_redis)),
+        "boto3": mock_boto3,
+        "openai": Mock(OpenAI=mock_openai, RateLimitError=Exception),
+        "PyPDF2": mock_pypdf2,
+        "supabase": mock_supabase_module,
+    },
+):
+    spec.loader.exec_module(main)
 
 
 def test_process_document_success(monkeypatch):

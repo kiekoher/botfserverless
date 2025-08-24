@@ -1,14 +1,20 @@
-import os
-import time
-import redis
-import boto3
-from openai import OpenAI, RateLimitError
 import io
 import logging
-from PyPDF2 import PdfReader
-from supabase import create_client, Client
-from chunking import chunk_text
+import os
+import sys
+import time
 from pathlib import Path
+
+import boto3
+import redis
+from openai import OpenAI, RateLimitError
+from PyPDF2 import PdfReader
+from supabase import Client, create_client
+
+from chunking import chunk_text
+
+sys.path.append(str(Path(__file__).resolve().parents[2]))
+from common.r2_config import load_r2_config
 
 # --- Initialization ---
 logging.basicConfig(level=logging.INFO)
@@ -46,27 +52,8 @@ SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY")
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 logger.info("🔌 Supabase client created with limited permissions.")
 
-def load_r2_config() -> dict[str, str]:
-    required = [
-        "R2_ENDPOINT_URL",
-        "R2_ACCESS_KEY_ID",
-        "R2_SECRET_ACCESS_KEY",
-        "R2_BUCKET_NAME",
-    ]
-    missing = [k for k in required if not os.environ.get(k)]
-    if missing:
-        raise RuntimeError(
-            f"Missing R2 configuration variables: {', '.join(missing)}"
-        )
-    return {
-        "endpoint_url": os.environ["R2_ENDPOINT_URL"],
-        "access_key": os.environ["R2_ACCESS_KEY_ID"],
-        "secret_key": os.environ["R2_SECRET_ACCESS_KEY"],
-        "bucket": os.environ["R2_BUCKET_NAME"],
-    }
-
 r2_config = load_r2_config()
-R2_BUCKET_NAME = r2_config['bucket']
+R2_BUCKET_NAME = r2_config["bucket"]
 
 def create_s3_client(retry=0):
     delay = min(2 ** retry, 30)

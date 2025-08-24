@@ -17,6 +17,11 @@ transcription_worker = importlib.util.module_from_spec(spec)
 mock_boto3 = MagicMock()
 mock_whisper = MagicMock()
 
+os.environ.setdefault("R2_ENDPOINT_URL", "http://example.com")
+os.environ.setdefault("R2_BUCKET_NAME", "bucket")
+os.environ.setdefault("R2_ACCESS_KEY_ID", "key")
+os.environ.setdefault("R2_SECRET_ACCESS_KEY", "secret")
+
 with patch.dict(
     "sys.modules",
     {

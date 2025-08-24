@@ -1,14 +1,19 @@
-import os
-import time
-import tempfile
 import asyncio
 import logging
+import os
+import sys
+import tempfile
+import time
+from pathlib import Path
+
 import boto3
-from redis.asyncio import Redis
-from redis.exceptions import ResponseError
 from faster_whisper import WhisperModel
 from pydub import AudioSegment
-from pathlib import Path
+from redis.asyncio import Redis
+from redis.exceptions import ResponseError
+
+sys.path.append(str(Path(__file__).resolve().parents[2]))
+from common.r2_config import load_r2_config
 
 # --- Configuration ---
 REDIS_HOST = os.getenv("REDIS_HOST", "redis")
@@ -18,26 +23,6 @@ STREAM_OUT = "events:transcribed_message"
 CONSUMER_GROUP = "group:transcription-workers"
 CONSUMER_NAME = f"consumer:transcription-worker-{os.getpid()}"
 HEALTHCHECK_FILE = Path("/tmp/health/last_processed")
-
-# R2 Configuration
-def load_r2_config() -> dict[str, str]:
-    required = [
-        "R2_ENDPOINT_URL",
-        "R2_BUCKET_NAME",
-        "R2_ACCESS_KEY_ID",
-        "R2_SECRET_ACCESS_KEY",
-    ]
-    missing = [k for k in required if not os.getenv(k)]
-    if missing:
-        raise RuntimeError(
-            f"Missing R2 configuration variables: {', '.join(missing)}"
-        )
-    return {
-        "endpoint_url": os.environ["R2_ENDPOINT_URL"],
-        "bucket": os.environ["R2_BUCKET_NAME"],
-        "access_key": os.environ["R2_ACCESS_KEY_ID"],
-        "secret_key": os.environ["R2_SECRET_ACCESS_KEY"],
-    }
 
 _r2_cfg = load_r2_config()
 R2_BUCKET_NAME = _r2_cfg["bucket"]
