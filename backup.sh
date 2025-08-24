@@ -3,8 +3,8 @@ set -e
 set -o pipefail
 
 # --- Configuration ---
-# Directory on the host where backups will be stored.
-BACKUP_DIR="/home/ubuntu/eva_backups"
+# This path is the mount point inside the backup container.
+BACKUP_DIR="/backups"
 # Number of old backups to keep.
 KEEP_BACKUPS=7
 # (Optional) Healthchecks.io or other monitoring service URL to ping on success.
