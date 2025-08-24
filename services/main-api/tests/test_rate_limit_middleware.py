@@ -6,6 +6,7 @@ import jwt
 import pytest
 import pytest_asyncio
 import httpx
+import fakeredis.aioredis
 from fastapi import FastAPI
 
 # Stub modules required by app.dependencies
@@ -40,7 +41,6 @@ os.environ.setdefault("FRONTEND_ORIGINS", "*")
 os.environ.setdefault("SUPABASE_JWT_SECRET", "secret")
 
 from app.main import rate_limit_middleware, app, settings  # noqa  E402
-import fakeredis.aioredis
 
 @pytest_asyncio.fixture()
 async def client():
