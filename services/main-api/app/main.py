@@ -89,7 +89,13 @@ async def lifespan(app: FastAPI):
         logger.info("🔌 Redis connection closed.")
 
 
-app = FastAPI(title="Main API", version="1.0.0", lifespan=lifespan)
+app = FastAPI(
+    title="Main API",
+    version="1.0.0",
+    docs_url="/docs",
+    openapi_url="/openapi.json",
+    lifespan=lifespan,
+)
 
 allowed_origins = [o.strip() for o in settings.frontend_origins.split(',') if o.strip()]
 if not allowed_origins:
