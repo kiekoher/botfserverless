@@ -1,0 +1,33 @@
+version: "3.8"
+services:
+  supabase-cli:
+    build:
+      context: ./supabase
+      dockerfile: Dockerfile
+    image: ${DOCKERHUB_USERNAME}/eva-supabase-cli:${SUPABASE_CLI_TAG:-latest}
+    container_name: eva_supabase_cli_prod
+    environment:
+      - SUPABASE_ACCESS_TOKEN=${SUPABASE_ACCESS_TOKEN}
+      - SUPABASE_DB_PASSWORD=${SUPABASE_DB_PASSWORD}
+      - SUPABASE_PROJECT_ID=${SUPABASE_PROJECT_ID}
+    networks:
+      - eva-net
+
+  e2e-tester:
+    build:
+      context: ./e2e
+      dockerfile: Dockerfile
+    image: ${DOCKERHUB_USERNAME}/eva-e2e-tester:${E2E_TAG:-latest}
+    container_name: eva_e2e_tester_prod
+    environment:
+      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      - NEXT_PUBLIC_API_URL=http://main-api:8000/api/v1
+      - FRONTEND_URL=http://frontend:3000
+      - TEST_USER_EMAIL=${TEST_USER_EMAIL}
+      - TEST_USER_PASSWORD=${TEST_USER_PASSWORD}
+    networks:
+      - eva-net
+    depends_on:
+      - frontend
+      - main-api

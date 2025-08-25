@@ -25,8 +25,20 @@ jobs:
 
       - name: Wait for services to be healthy
         run: |
-          echo "Waiting for services to initialize..."
-          sleep 30 # Give services ample time to start and run healthchecks
+          echo "Waiting for services to become healthy..."
+          services=(main-api dlq-monitor embedding-worker transcription-worker whatsapp-gateway frontend)
+          for i in {1..60}; do
+            all_healthy=true
+            for s in "${services[@]}"; do
+              status=$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}starting{{end}}' $(docker-compose -f docker-compose.prod.yml ps -q $s))
+              if [ "$status" != "healthy" ]; then
+                all_healthy=false
+                break
+              fi
+            done
+            [ "$all_healthy" = true ] && break
+            sleep 1
+          done
           docker-compose -f docker-compose.prod.yml ps
 
       - name: Run Backend Tests
@@ -34,13 +46,18 @@ jobs:
 
       - name: Run DLQ Monitor Tests
         run: docker-compose -f docker-compose.prod.yml exec -T dlq-monitor pytest
+      - name: Run Embedding Worker Tests
+        run: docker-compose -f docker-compose.prod.yml exec -T embedding-worker pytest
+      - name: Run Transcription Worker Tests
+        run: docker-compose -f docker-compose.prod.yml exec -T transcription-worker pytest
+      - name: Run WhatsApp Gateway Tests
+        run: docker-compose -f docker-compose.prod.yml exec -T whatsapp-gateway npm test
 
       - name: Run Frontend Tests
         run: docker-compose -f docker-compose.prod.yml exec -T frontend npm test
 
       - name: Run End-to-End Tests
-        run: |
-          docker-compose -f docker-compose.prod.yml run --rm e2e-tester bash -c "npm install && npm test"
+        run: docker-compose -f docker-compose.prod.yml -f docker-compose.override.yml run --rm e2e-tester
 
       - name: Run Backend Linters
         run: |
@@ -58,6 +75,8 @@ jobs:
 
       - name: Scan Frontend Vulnerabilities
         run: docker-compose -f docker-compose.prod.yml exec -T frontend npm audit --audit-level=high
+      - name: Scan WhatsApp Gateway Vulnerabilities
+        run: docker-compose -f docker-compose.prod.yml exec -T whatsapp-gateway npm audit --audit-level=high
 
       - name: Scan Backend Vulnerabilities
         run: |
@@ -171,7 +190,7 @@ jobs:
             docker-compose -f docker-compose.prod.yml pull
 
             echo "Running database migrations..."
-            docker-compose -f docker-compose.prod.yml run --rm supabase-cli supabase db push
+            docker-compose -f docker-compose.prod.yml -f docker-compose.override.yml run --rm supabase-cli db push
 
             echo "Restarting all services..."
             docker-compose -f docker-compose.prod.yml up -d

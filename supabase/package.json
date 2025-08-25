@@ -1,0 +1,8 @@
+{
+  "name": "supabase-cli",
+  "version": "1.0.0",
+  "license": "MIT",
+  "dependencies": {
+    "supabase": "^2.34.3"
+  }
+}
