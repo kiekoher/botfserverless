@@ -57,6 +57,17 @@ Para ver los logs de un servicio específico (por ejemplo, `whatsapp-gateway` pa
 docker-compose -f docker-compose.prod.yml logs -f whatsapp-gateway
 ```
 
+## 📚 Documentación de la API
+
+El servicio `main-api` expone documentación interactiva generada automáticamente por FastAPI en la ruta `/docs`.
+Una vez que los contenedores estén en ejecución, puede accederse a través de:
+
+```
+http://<host>:8000/docs
+```
+
+Esta interfaz permite explorar los endpoints disponibles y probarlos directamente desde el navegador.
+
 ---
 
 ## 🧪 Pruebas
