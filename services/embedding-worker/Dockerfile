@@ -8,8 +8,8 @@ RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
 # Copy and install requirements
-COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+COPY requirements.txt requirements-prod.txt ./
+RUN pip install --no-cache-dir -r requirements-prod.txt
 
 
 # Stage 2: Final production image

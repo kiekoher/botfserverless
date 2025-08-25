@@ -4,7 +4,7 @@ FROM python:3.11-slim as builder
 WORKDIR /app
 
 # Install build-essential if any packages need to compile from source
-RUN apt-get update && apt-get install -y --no-cache-dir build-essential
+RUN apt-get update && apt-get install -y build-essential && rm -rf /var/lib/apt/lists/*
 
 # Create a virtual environment
 RUN python -m venv /opt/venv
@@ -13,14 +13,14 @@ ENV PATH="/opt/venv/bin:$PATH"
 # Copy and install requirements.
 # We copy both so the layer can be cached, even if only one is used.
 COPY requirements.txt requirements-prod.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements-prod.txt
 
 
 # Stage 2: Final production image
 FROM python:3.11-slim as runner
 
 # Install ffmpeg, which is a runtime dependency for audio processing
-RUN apt-get update && apt-get install -y --no-cache-dir --no-install-recommends ffmpeg && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /code
 
