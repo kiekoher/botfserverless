@@ -422,6 +422,45 @@ volumes:
   embedding_worker_health:
   dlq_monitor_health:
 
+  e2e-tester:
+    image: mcr.microsoft.com/playwright:v1.44.0-jammy
+    container_name: eva_e2e_tester_prod
+    # This service is for running tests, not for continuous operation.
+    # It will be started by the CI/CD pipeline.
+    # We mount the e2e tests directory into the container.
+    volumes:
+      - ./e2e:/app/e2e
+    # The working directory is set to where our code is mounted.
+    working_dir: /app/e2e
+    # Environment variables needed for the tests to run.
+    # We need to connect to the frontend, which is running on the same network.
+    environment:
+      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      - NEXT_PUBLIC_API_URL=http://main-api:8000/api/v1
+      - FRONTEND_URL=http://frontend:3000
+      - TEST_USER_EMAIL=${TEST_USER_EMAIL}
+      - TEST_USER_PASSWORD=${TEST_USER_PASSWORD}
+    # We connect this service to the same network as the other services.
+    networks:
+      - eva-net
+    # The tests depend on the frontend and the main API being up and running.
+    depends_on:
+      - frontend
+      - main-api
+
+volumes:
+  rclone_config:
+  redis_data:
+  whatsapp_session_prod:
+  traefik_data:
+  prometheus_data:
+  alertmanager_data:
+  grafana_data:
+  transcription_worker_health:
+  embedding_worker_health:
+  dlq_monitor_health:
+
 networks:
   eva-net:
     driver: bridge

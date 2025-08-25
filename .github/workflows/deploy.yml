@@ -13,6 +13,9 @@ jobs:
   test_and_scan:
     name: Test & Vulnerability Scan
     runs-on: ubuntu-latest
+    env:
+      TEST_USER_EMAIL: ${{ secrets.TEST_USER_EMAIL }}
+      TEST_USER_PASSWORD: ${{ secrets.TEST_USER_PASSWORD }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -34,6 +37,10 @@ jobs:
 
       - name: Run Frontend Tests
         run: docker-compose -f docker-compose.prod.yml exec -T frontend npm test
+
+      - name: Run End-to-End Tests
+        run: |
+          docker-compose -f docker-compose.prod.yml run --rm e2e-tester bash -c "npm install && npm test"
 
       - name: Run Backend Linters
         run: |
