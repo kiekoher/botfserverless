@@ -64,6 +64,17 @@ app = FastAPI(
     openapi_url="/openapi.json",
 )
 
+# Middleware para añadir Headers de Seguridad
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    # Podríamos añadir un Content-Security-Policy aquí en el futuro si es necesario.
+    # response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self'"
+    return response
+
 # Configuración de CORS
 allowed_origins = [o.strip() for o in settings.frontend_origins.split(",") if o.strip()]
 if not allowed_origins:
@@ -127,8 +138,8 @@ app.include_router(onboarding.router, prefix="/api/v1")
 app.include_router(agents.router, prefix="/api/v1")
 app.include_router(knowledge.router, prefix="/api/v1")
 app.include_router(quality.router, prefix="/api/v1")
-app.include_router(billing.router, prefix="/api/v1")
-app.include_router(reports.router, prefix="/api/v1")
+# app.include_router(billing.router, prefix="/api/v1") # Disabled for Beta
+# app.include_router(reports.router, prefix="/api/v1") # Disabled for Beta
 app.include_router(admin.router, prefix="/api/v1")
 
 

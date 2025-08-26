@@ -22,6 +22,14 @@ services:
       timeout: 10s
       retries: 5
       start_period: 30s
+    logging:
+      # Forwards logs to a centralized syslog server (Better Stack).
+      # Requires BETTERSTACK_INGEST_HOST and BETTERSTACK_SOURCE_TOKEN to be in the environment.
+      driver: syslog
+      options:
+        syslog-address: "tcp://${BETTERSTACK_INGEST_HOST}:6514"
+        syslog-format: "rfc5424"
+        tag: '[logtail@11993 source_token="${BETTERSTACK_SOURCE_TOKEN}"] eva_whatsapp_gateway'
 
 volumes:
   whatsapp_session_prod:

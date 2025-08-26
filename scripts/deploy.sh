@@ -15,6 +15,7 @@ set -euo pipefail
 #   - DOPPLER_TOKEN: For logging into Doppler and the container registry.
 #   - IMAGE_NAME: The full name of the image to pull (e.g., ghcr.io/owner/repo).
 #   - IMAGE_TAG: The specific tag (e.g., commit SHA) of the image to pull.
+#   - GHCR_USER: The username for logging into the GitHub Container Registry.
 # ==============================================================================
 
 # --- Helper Functions ---
@@ -30,8 +31,8 @@ if ! command -v doppler &> /dev/null || ! command -v docker &> /dev/null; then
     exit 1
 fi
 
-if [ -z "${IMAGE_NAME-}" ] || [ -z "${IMAGE_TAG-}" ]; then
-    log "ERROR: IMAGE_NAME and IMAGE_TAG must be set in the environment."
+if [ -z "${IMAGE_NAME-}" ] || [ -z "${IMAGE_TAG-}" ] || [ -z "${GHCR_USER-}" ]; then
+    log "ERROR: IMAGE_NAME, IMAGE_TAG, and GHCR_USER must be set in the environment."
     exit 1
 fi
 
@@ -53,7 +54,7 @@ log "Image: ${IMAGE_NAME}:${IMAGE_TAG}"
 # 1. Log in to GitHub Container Registry
 log "Logging in to GitHub Container Registry (ghcr.io)..."
 # We use the Doppler service token as the password, which is a supported method for GHCR.
-if ! echo "${DOPPLER_TOKEN}" | docker login ghcr.io -u "eva-ci-bot" --password-stdin; then
+if ! echo "${DOPPLER_TOKEN}" | docker login ghcr.io -u "${GHCR_USER}" --password-stdin; then
     log "❌ Docker login to ghcr.io failed."
     exit 1
 fi
@@ -78,8 +79,10 @@ else
 fi
 
 # 4. Clean up old, unused Docker images
-log "Cleaning up old Docker images..."
-docker image prune -f
+log "Cleaning up old Docker images (older than 7 days)..."
+# This prunes all unused images (not just dangling ones) that are older than 168 hours (7 days).
+# This is safer than `docker image prune -f` as it leaves recent images for quick rollbacks.
+docker image prune -a --filter "until=168h" --force
 
 log "🚀 Deployment finished successfully!"
 exit 0
