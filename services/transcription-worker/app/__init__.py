@@ -1,1 +1,0 @@
-"""Transcription worker package."""

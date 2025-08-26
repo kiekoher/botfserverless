@@ -6,11 +6,9 @@ const supabase = createBrowserClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
-// Define the base URL for our main API
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
-if (!API_BASE_URL) {
-  throw new Error('NEXT_PUBLIC_API_URL is required');
-}
+// In a serverless Vercel deployment, we use relative paths for API calls.
+// Vercel rewrites them to the appropriate serverless function.
+// The NEXT_PUBLIC_API_URL is no longer needed.
 
 // --- Helper function to get the auth token ---
 async function getAuthToken() {
@@ -29,7 +27,7 @@ async function getAuthToken() {
 async function fetchFromApi(path: string, options: RequestInit = {}, retry = true) {
   const token = await getAuthToken();
   try {
-    const response = await fetch(`${API_BASE_URL}${path}`, {
+    const response = await fetch(`/api/v1${path}`, {
       ...options,
       headers: {
         ...options.headers,
@@ -116,7 +114,7 @@ export const uploadDocument = async (file: File) => {
   const token = await getAuthToken();
   const formData = new FormData();
   formData.append('file', file);
-  const response = await fetch(`${API_BASE_URL}/knowledge/upload`, {
+  const response = await fetch(`/api/v1/knowledge/upload`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
     body: formData,
