@@ -1,4 +1,4 @@
-name: Deploy EVA Production Services
+name: Test and Deploy EVA Production Services
 
 on:
   push:
@@ -7,68 +7,126 @@ on:
   workflow_dispatch: # Allows manual triggering
 
 jobs:
+  # ============================================================================
+  #                                TEST JOBS
+  # ============================================================================
+  test-api:
+    name: Test API (Python)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Run API tests
+        run: pytest api/
+
+  test-frontend:
+    name: Test Frontend (Next.js)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Set up Node.js 18
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      - name: Install dependencies
+        working-directory: ./frontend
+        run: npm install
+      - name: Run frontend tests
+        working-directory: ./frontend
+        run: npm test
+
+  test-gateway:
+    name: Test Gateway (Node.js)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Set up Node.js 18
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      - name: Install dependencies
+        working-directory: ./services/whatsapp-gateway
+        run: npm install
+      - name: Run gateway tests
+        working-directory: ./services/whatsapp-gateway
+        run: npm test
+
+  # ============================================================================
+  #                              DEPLOYMENT JOBS
+  # ============================================================================
   deploy-gateway:
     name: Deploy WhatsApp Gateway
-    # This job only runs if changes are pushed to the gateway service directory
-    # or to the production docker-compose file.
+    needs: [test-gateway] # Depends on its own tests
     if: |
       github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'push' &&
       (
-        contains(join(github.event.commits.*.modified, ' '), 'services/whatsapp-gateway/') ||
-        contains(join(github.event.commits.*.added, ' '), 'services/whatsapp-gateway/') ||
-        contains(join(github.event.commits.*.removed, ' '), 'services/whatsapp-gateway/') ||
-        contains(join(github.event.commits.*.modified, ' '), 'docker-compose.prod.yml')
-      ))
-
+        github.event_name == 'push' &&
+        needs.test-gateway.result == 'success' &&
+        (
+          contains(join(github.event.commits.*.modified, ' '), 'services/whatsapp-gateway/') ||
+          contains(join(github.event.commits.*.added, ' '), 'services/whatsapp-gateway/') ||
+          contains(join(github.event.commits.*.removed, ' '), 'services/whatsapp-gateway/') ||
+          contains(join(github.event.commits.*.modified, ' '), 'docker-compose.prod.yml')
+        )
+      )
     runs-on: ubuntu-latest
-
     steps:
-      - name: 1. Configure SSH
+      - name: Configure SSH
         uses: webfactory/ssh-agent@v0.8.0
         with:
           ssh-private-key: ${{ secrets.GATEWAY_SSH_PRIVATE_KEY }}
 
-      - name: 2. Add remote host to known_hosts
+      - name: Add remote host to known_hosts
         run: |
           mkdir -p ~/.ssh
           ssh-keyscan -H ${{ secrets.GATEWAY_SSH_HOST }} >> ~/.ssh/known_hosts
 
-      - name: 3. Execute Deployment Script on Server
+      - name: Execute Deployment Script on Server
         env:
-          # The Doppler token is needed for the deploy script to authenticate.
           DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN_PROD }}
         run: |
           ssh ${{ secrets.GATEWAY_SSH_USER }}@${{ secrets.GATEWAY_SSH_HOST }} "cd ~/eva-platform && export DOPPLER_TOKEN=${DOPPLER_TOKEN} && bash scripts/deploy.sh"
 
   deploy-migrations:
     name: Deploy Database Migrations
+    needs: [test-api] # Depends on API tests
     if: |
       github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'push' &&
       (
-        contains(join(github.event.commits.*.modified, ' '), 'supabase/migrations/') ||
-        contains(join(github.event.commits.*.added, ' '), 'supabase/migrations/') ||
-        contains(join(github.event.commits.*.removed, ' '), 'supabase/migrations/')
-      ))
+        github.event_name == 'push' &&
+        needs.test-api.result == 'success' &&
+        (
+          contains(join(github.event.commits.*.modified, ' '), 'supabase/migrations/') ||
+          contains(join(github.event.commits.*.added, ' '), 'supabase/migrations/') ||
+          contains(join(github.event.commits.*.removed, ' '), 'supabase/migrations/')
+        )
+      )
     runs-on: ubuntu-latest
     steps:
-      - name: 1. Checkout code
+      - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: 2. Setup Supabase CLI
+      - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
         with:
           version: latest
 
-      - name: 3. Link Supabase project
+      - name: Link Supabase project
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
         run: |
           supabase link --project-ref $SUPABASE_PROJECT_ID
 
-      - name: 4. Push database migrations
+      - name: Push database migrations
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
