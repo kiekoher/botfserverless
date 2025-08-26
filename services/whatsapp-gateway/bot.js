@@ -7,7 +7,31 @@ const { v4: uuidv4 } = require('uuid');
 const http = require('http');
 const clientMetrics = require('prom-client');
 const pino = require('pino');
-const logger = pino();
+
+// --- Logger Configuration ---
+const BETTERSTACK_SOURCE_TOKEN = process.env.BETTERSTACK_SOURCE_TOKEN;
+let logger;
+
+if (BETTERSTACK_SOURCE_TOKEN && process.env.NODE_ENV !== 'test') {
+    const transport = pino.transport({
+        target: "@logtail/pino",
+        options: { sourceToken: BETTERSTACK_SOURCE_TOKEN },
+    });
+    logger = pino(transport);
+    logger.info("BetterStack logger initialized.");
+} else if (process.env.NODE_ENV !== 'test') {
+    logger = pino({
+        transport: {
+            target: 'pino-pretty',
+            options: { colorize: true, translateTime: 'SYS:standard' }
+        },
+    });
+    logger.info("BetterStack token not found. Using pino-pretty for local logging.");
+} else {
+    // No-op logger for tests to keep output clean
+    logger = pino({ level: 'silent' });
+}
+
 clientMetrics.collectDefaultMetrics();
 const sessionGauge = new clientMetrics.Gauge({
     name: 'eva_whatsapp_session_connected',

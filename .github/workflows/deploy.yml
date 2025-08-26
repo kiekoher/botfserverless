@@ -1,0 +1,76 @@
+name: Deploy EVA Production Services
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch: # Allows manual triggering
+
+jobs:
+  deploy-gateway:
+    name: Deploy WhatsApp Gateway
+    # This job only runs if changes are pushed to the gateway service directory
+    # or to the production docker-compose file.
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' &&
+      (
+        contains(join(github.event.commits.*.modified, ' '), 'services/whatsapp-gateway/') ||
+        contains(join(github.event.commits.*.added, ' '), 'services/whatsapp-gateway/') ||
+        contains(join(github.event.commits.*.removed, ' '), 'services/whatsapp-gateway/') ||
+        contains(join(github.event.commits.*.modified, ' '), 'docker-compose.prod.yml')
+      ))
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 1. Configure SSH
+        uses: webfactory/ssh-agent@v0.8.0
+        with:
+          ssh-private-key: ${{ secrets.GATEWAY_SSH_PRIVATE_KEY }}
+
+      - name: 2. Add remote host to known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.GATEWAY_SSH_HOST }} >> ~/.ssh/known_hosts
+
+      - name: 3. Execute Deployment Script on Server
+        env:
+          # The Doppler token is needed for the deploy script to authenticate.
+          DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN_PROD }}
+        run: |
+          ssh ${{ secrets.GATEWAY_SSH_USER }}@${{ secrets.GATEWAY_SSH_HOST }} "cd ~/eva-platform && export DOPPLER_TOKEN=${DOPPLER_TOKEN} && bash scripts/deploy.sh"
+
+  deploy-migrations:
+    name: Deploy Database Migrations
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' &&
+      (
+        contains(join(github.event.commits.*.modified, ' '), 'supabase/migrations/') ||
+        contains(join(github.event.commits.*.added, ' '), 'supabase/migrations/') ||
+        contains(join(github.event.commits.*.removed, ' '), 'supabase/migrations/')
+      ))
+    runs-on: ubuntu-latest
+    steps:
+      - name: 1. Checkout code
+        uses: actions/checkout@v3
+
+      - name: 2. Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: 3. Link Supabase project
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+        run: |
+          supabase link --project-ref $SUPABASE_PROJECT_ID
+
+      - name: 4. Push database migrations
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          supabase db push

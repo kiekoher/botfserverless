@@ -12,6 +12,7 @@ from v1 import (
     quality,
     billing,
     reports,
+    admin,
 )
 from core.config import get_settings
 from dependencies import supabase_adapter, ai_router, cloudflare_queue_adapter
@@ -19,9 +20,39 @@ from dependencies import supabase_adapter, ai_router, cloudflare_queue_adapter
 # --------------------------
 #      Configuración
 # --------------------------
+import os
+from logtail import LogtailHandler
+
 settings = get_settings()
-logging.basicConfig(level=logging.INFO)
+
+# --- Logging Configuration ---
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+logger.handlers = []  # Evita duplicados si el módulo se recarga
+
+# Handler para la consola (logs de Vercel, desarrollo local)
+stream_handler = logging.StreamHandler()
+stream_handler.setLevel(logging.INFO)
+formatter = logging.Formatter(
+    '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+stream_handler.setFormatter(formatter)
+logger.addHandler(stream_handler)
+
+# Handler para BetterStack (si el token está configurado)
+BETTERSTACK_SOURCE_TOKEN = os.getenv("BETTERSTACK_SOURCE_TOKEN")
+if BETTERSTACK_SOURCE_TOKEN:
+    try:
+        logtail_handler = LogtailHandler(source_token=BETTERSTACK_SOURCE_TOKEN)
+        logtail_handler.setLevel(logging.INFO)
+        logger.addHandler(logtail_handler)
+        logger.info("BetterStack log handler configured successfully.")
+    except Exception as e:
+        logger.error(f"Failed to configure BetterStack handler: {e}")
+else:
+    logger.info("BETTERSTACK_SOURCE_TOKEN not found. Logging to console only.")
+# --- End Logging Configuration ---
+
 
 # --------------------------
 #      FastAPI App
@@ -98,6 +129,7 @@ app.include_router(knowledge.router, prefix="/api/v1")
 app.include_router(quality.router, prefix="/api/v1")
 app.include_router(billing.router, prefix="/api/v1")
 app.include_router(reports.router, prefix="/api/v1")
+app.include_router(admin.router, prefix="/api/v1")
 
 
 # --------------------------

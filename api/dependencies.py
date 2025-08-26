@@ -1,4 +1,4 @@
-from fastapi import HTTPException, Request
+from fastapi import Depends, HTTPException, Request
 import time
 import jwt
 from jwt import InvalidTokenError
@@ -40,8 +40,11 @@ ai_router = AIRouter(
 )
 
 
-def get_current_user_id(request: Request) -> str:
-    """Extracts and validates the user ID from a Supabase JWT."""
+def _get_token_payload(request: Request) -> dict:
+    """
+    Validates Supabase JWT and returns the payload.
+    This is a private helper dependency.
+    """
     auth_header = request.headers.get("Authorization")
     if not auth_header or not auth_header.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Missing or invalid Authorization header")
@@ -64,11 +67,28 @@ def get_current_user_id(request: Request) -> str:
     if aud and aud != "authenticated":
         raise HTTPException(status_code=401, detail="Invalid audience")
 
-    try:
-        user = supabase_adapter.client.auth.get_user(token)
-        return user.user.id  # type: ignore[attr-defined]
-    except Exception as exc:  # pragma: no cover - depends on external service
-        raise HTTPException(status_code=401, detail="Invalid authentication token") from exc
+    return payload
+
+
+def get_current_user_id(payload: dict = Depends(_get_token_payload)) -> str:
+    """Extracts user ID from the token payload."""
+    user_id = payload.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="User ID not found in token")
+    return user_id
+
+
+def require_admin_role(payload: dict = Depends(_get_token_payload)):
+    """
+    A dependency that requires the user to have an 'admin' role.
+    Supabase roles are often in `app_metadata`. We check for a custom claim.
+    """
+    app_metadata = payload.get("app_metadata", {})
+    # Using claims_admin is a common pattern for protected roles in Supabase
+    is_admin = app_metadata.get("claims_admin", False)
+
+    if not is_admin:
+        raise HTTPException(status_code=403, detail="User is not authorized to perform this action")
 
 
 def get_supabase_adapter() -> SupabaseAdapter:
