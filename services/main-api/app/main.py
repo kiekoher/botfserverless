@@ -25,7 +25,7 @@ from app.dependencies import (
     openai_embedding_adapter,
     ai_router,
 )
-from app.api.v1 import onboarding, agents, knowledge, quality, billing, reports
+from app.api.v1 import onboarding, agents, knowledge, quality, billing, reports, admin
 from app.core.config import get_settings
 
 settings = get_settings()
@@ -294,6 +294,7 @@ app.include_router(knowledge.router, prefix="/api/v1")
 app.include_router(quality.router, prefix="/api/v1")
 app.include_router(billing.router, prefix="/api/v1")
 app.include_router(reports.router, prefix="/api/v1")
+app.include_router(admin.router, prefix="/api/v1/admin", tags=["Admin"])
 
 # --------------------------
 # Ciclo de vida de la App manejado por "lifespan" en la creación de FastAPI.

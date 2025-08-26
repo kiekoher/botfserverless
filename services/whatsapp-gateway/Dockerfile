@@ -44,7 +44,6 @@ COPY --from=builder --chown=botuser:botuser /app/node_modules ./node_modules
 COPY --from=builder --chown=botuser:botuser /app/package.json ./package.json
 COPY --from=builder --chown=botuser:botuser /app/package-lock.json ./package-lock.json
 COPY --from=builder --chown=botuser:botuser /app/bot.js ./bot.js
-COPY --from=builder --chown=botuser:botuser /app/healthcheck.js ./healthcheck.js
 COPY --from=builder --chown=botuser:botuser /app/keys.js ./keys.js
 
 # Command to run the application
