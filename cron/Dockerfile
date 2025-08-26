@@ -4,14 +4,15 @@ FROM alpine:3.18
 # Install necessary packages:
 # - dcron: the cron daemon
 # - docker-cli: to interact with the Docker engine on the host
+# - docker-compose: to gracefully stop and start services
 # - rclone: for optional off-site backups
-RUN apk add --no-cache dcron docker-cli rclone
+RUN apk add --no-cache dcron docker-cli docker-compose rclone
 
 # Create a directory for the app scripts
 WORKDIR /app
 
-# Copy the backup script from the root directory into the container
-COPY ../backup.sh .
+# Copy the backup script from the build context into the container
+COPY backup.sh .
 # Copy the crontab file into the system directory for cron
 COPY eva_crontab /etc/crontabs/root
 

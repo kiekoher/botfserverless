@@ -177,6 +177,7 @@ jobs:
             REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
             WHATSAPP_USER_ID=${{ secrets.WHATSAPP_USER_ID }}
             GRAFANA_ADMIN_PASSWORD=${{ secrets.GRAFANA_ADMIN_PASSWORD }}
+            GRAFANA_BASIC_AUTH_USER='${{ secrets.GRAFANA_BASIC_AUTH_USER }}'
             # Backup service configuration
             BACKUP_HEALTHCHECK_URL=${{ secrets.BACKUP_HEALTHCHECK_URL }}
             R2_REMOTE_NAME=${{ secrets.R2_REMOTE_NAME }}

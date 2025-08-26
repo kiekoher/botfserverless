@@ -3,16 +3,20 @@ services:
     image: redis:7.2-alpine
     container_name: eva_redis_prod
     restart: unless-stopped
-    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD}"]
+    command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
     volumes:
+      - ./redis/redis.conf:/usr/local/etc/redis/redis.conf
       - redis_data:/data
     logging:
-      driver: json-file
+      driver: loki
       options:
-        max-size: "10m"
-        max-file: "3"
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-batch-size: "400"
+        loki-retries: "5"
+        loki-label-service: "{{.Name}}"
+        loki-label-project: "eva"
     networks:
-      - eva-net
+      - backend_net
 
   traefik:
     image: traefik:v2.11
@@ -39,12 +43,15 @@ services:
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
       - "traefik_data:/letsencrypt"
     logging:
-      driver: json-file
+      driver: loki
       options:
-        max-size: "10m"
-        max-file: "3"
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-batch-size: "400"
+        loki-retries: "5"
+        loki-label-service: "{{.Name}}"
+        loki-label-project: "eva"
     networks:
-      - eva-net
+      - frontend_net
 
   main-api:
     build:
@@ -70,24 +77,30 @@ services:
     depends_on:
       - redis
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health/deep || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 15s
     logging:
-      driver: json-file
+      driver: loki
       options:
-        max-size: "10m"
-        max-file: "3"
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-batch-size: "400"
+        loki-retries: "5"
+        loki-label-service: "{{.Name}}"
+        loki-label-project: "eva"
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.main-api.rule=Host(`${DOMAIN_NAME}`) && PathPrefix(`/api`)"
       - "traefik.http.routers.main-api.entrypoints=websecure"
       - "traefik.http.routers.main-api.tls.certresolver=myresolver"
       - "traefik.http.services.main-api.loadbalancer.server.port=8000"
+      - "traefik.docker.network=frontend_net"
     networks:
-      - eva-net
+      - frontend_net
+      - backend_net
+      - monitoring_net
 
   whatsapp-gateway:
     build:
@@ -108,8 +121,6 @@ services:
       - WHATSAPP_USER_ID=${WHATSAPP_USER_ID}
     volumes:
       - whatsapp_session_prod:/app/session
-    ports:
-      - "9100:9100"
     depends_on:
       - redis
     healthcheck:
@@ -118,12 +129,16 @@ services:
       timeout: 5s
       retries: 5
     logging:
-      driver: json-file
+      driver: loki
       options:
-        max-size: "10m"
-        max-file: "3"
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-batch-size: "400"
+        loki-retries: "5"
+        loki-label-service: "{{.Name}}"
+        loki-label-project: "eva"
     networks:
-      - eva-net
+      - backend_net
+      - monitoring_net
 
   transcription-worker:
     build:
@@ -151,12 +166,15 @@ services:
       timeout: 10s
       retries: 5
     logging:
-      driver: json-file
+      driver: loki
       options:
-        max-size: "10m"
-        max-file: "3"
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-batch-size: "400"
+        loki-retries: "5"
+        loki-label-service: "{{.Name}}"
+        loki-label-project: "eva"
     networks:
-      - eva-net
+      - backend_net
 
   embedding-worker:
     build:
@@ -188,12 +206,15 @@ services:
       timeout: 10s
       retries: 5
     logging:
-      driver: json-file
+      driver: loki
       options:
-        max-size: "10m"
-        max-file: "3"
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-batch-size: "400"
+        loki-retries: "5"
+        loki-label-service: "{{.Name}}"
+        loki-label-project: "eva"
     networks:
-      - eva-net
+      - backend_net
 
   dlq-monitor:
     build:
@@ -217,12 +238,15 @@ services:
       timeout: 10s
       retries: 5
     logging:
-      driver: json-file
+      driver: loki
       options:
-        max-size: "10m"
-        max-file: "3"
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-batch-size: "400"
+        loki-retries: "5"
+        loki-label-service: "{{.Name}}"
+        loki-label-project: "eva"
     networks:
-      - eva-net
+      - backend_net
 
   frontend:
     build:
@@ -245,18 +269,22 @@ services:
       retries: 3
       start_period: 15s
     logging:
-      driver: json-file
+      driver: loki
       options:
-        max-size: "10m"
-        max-file: "3"
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-batch-size: "400"
+        loki-retries: "5"
+        loki-label-service: "{{.Name}}"
+        loki-label-project: "eva"
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.frontend.rule=Host(`${DOMAIN_NAME}`)"
       - "traefik.http.routers.frontend.entrypoints=websecure"
       - "traefik.http.routers.frontend.tls.certresolver=myresolver"
       - "traefik.http.services.frontend.loadbalancer.server.port=3000"
+      - "traefik.docker.network=frontend_net"
     networks:
-      - eva-net
+      - frontend_net
 
   loki:
     image: grafana/loki:2.9.0
@@ -264,30 +292,15 @@ services:
     restart: unless-stopped
     command: -config.file=/etc/loki/local-config.yaml
     logging:
-      driver: json-file
+      driver: loki
       options:
-        max-size: "10m"
-        max-file: "3"
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-batch-size: "400"
+        loki-retries: "5"
+        loki-label-service: "{{.Name}}"
+        loki-label-project: "eva"
     networks:
-      - eva-net
-
-  promtail:
-    image: grafana/promtail:2.9.0
-    container_name: eva_promtail_prod
-    restart: unless-stopped
-    volumes:
-      - /var/lib/docker/containers:/var/lib/docker/containers:ro
-      - ./promtail/promtail.yml:/etc/promtail/config.yml
-    command: -config.file=/etc/promtail/config.yml
-    depends_on:
-      - loki
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-    networks:
-      - eva-net
+      - monitoring_net
 
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:v0.47.2
@@ -299,12 +312,15 @@ services:
       - /sys:/sys:ro
       - /var/lib/docker/:/var/lib/docker:ro
     logging:
-      driver: json-file
+      driver: loki
       options:
-        max-size: "10m"
-        max-file: "3"
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-batch-size: "400"
+        loki-retries: "5"
+        loki-label-service: "{{.Name}}"
+        loki-label-project: "eva"
     networks:
-      - eva-net
+      - monitoring_net
 
   prometheus:
     image: prom/prometheus:v2.47.2
@@ -320,12 +336,15 @@ services:
       - '--web.console.libraries=/usr/share/prometheus/console_libraries'
       - '--web.console.templates=/usr/share/prometheus/consoles'
     logging:
-      driver: json-file
+      driver: loki
       options:
-        max-size: "10m"
-        max-file: "3"
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-batch-size: "400"
+        loki-retries: "5"
+        loki-label-service: "{{.Name}}"
+        loki-label-project: "eva"
     networks:
-      - eva-net
+      - monitoring_net
 
   alertmanager:
     image: prom/alertmanager:v0.25.0
@@ -338,12 +357,15 @@ services:
       - '--config.file=/etc/alertmanager/config.yml'
       - '--storage.path=/alertmanager'
     logging:
-      driver: json-file
+      driver: loki
       options:
-        max-size: "10m"
-        max-file: "3"
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-batch-size: "400"
+        loki-retries: "5"
+        loki-label-service: "{{.Name}}"
+        loki-label-project: "eva"
     networks:
-      - eva-net
+      - monitoring_net
 
   grafana:
     image: grafana/grafana-oss:10.1.5
@@ -358,17 +380,24 @@ services:
       - GF_USERS_ALLOW_SIGN_UP=false
     labels:
       - "traefik.enable=true"
+      - "traefik.http.middlewares.grafana-auth.basicauth.users=${GRAFANA_BASIC_AUTH_USER}"
       - "traefik.http.routers.grafana.rule=Host(`${DOMAIN_NAME}`) && PathPrefix(`/grafana`)"
       - "traefik.http.routers.grafana.entrypoints=websecure"
       - "traefik.http.routers.grafana.tls.certresolver=myresolver"
+      - "traefik.http.routers.grafana.middlewares=grafana-auth"
       - "traefik.http.services.grafana.loadbalancer.server.port=3000"
+      - "traefik.docker.network=frontend_net"
     logging:
-      driver: json-file
+      driver: loki
       options:
-        max-size: "10m"
-        max-file: "3"
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-batch-size: "400"
+        loki-retries: "5"
+        loki-label-service: "{{.Name}}"
+        loki-label-project: "eva"
     networks:
-      - eva-net
+      - frontend_net
+      - monitoring_net
 
   backup:
     build:
@@ -378,23 +407,26 @@ services:
     container_name: eva_backup_prod
     restart: unless-stopped
     volumes:
-      # Mount the Docker socket to allow the script to interact with Docker
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      # Mount the Docker volumes directory to allow tar to access volume data
+      - ./docker-compose.prod.yml:/app/compose.yml:ro
       - /var/lib/docker/volumes:/var/lib/docker/volumes:ro
-      # Mount the local directory where backups will be stored
       - ./eva_backups:/backups
-      # Mount a volume for rclone configuration to persist it
       - rclone_config:/root/.config/rclone
     environment:
+      - COMPOSE_PROJECT_NAME=eva
       - HEALTHCHECK_URL=${BACKUP_HEALTHCHECK_URL}
       - R2_REMOTE_NAME=${R2_REMOTE_NAME}
       - R2_BUCKET_PATH=${R2_BUCKET_PATH}
     logging:
-      driver: json-file
+      driver: loki
       options:
-        max-size: "10m"
-        max-file: "3"
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-batch-size: "400"
+        loki-retries: "5"
+        loki-label-service: "{{.Name}}"
+        loki-label-project: "eva"
+    networks:
+      - backend_net
 
 volumes:
   rclone_config:
@@ -409,5 +441,9 @@ volumes:
   dlq_monitor_health:
 
 networks:
-  eva-net:
+  frontend_net:
+    driver: bridge
+  backend_net:
+    driver: bridge
+  monitoring_net:
     driver: bridge
