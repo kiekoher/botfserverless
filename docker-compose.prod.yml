@@ -1,9 +1,6 @@
 services:
   whatsapp-gateway:
-    build:
-      context: ./services/whatsapp-gateway
-      dockerfile: Dockerfile
-    image: ${DOCKERHUB_USERNAME}/eva-whatsapp-gateway:${WHATSAPP_GATEWAY_TAG:-latest}
+    image: ${WHATSAPP_GATEWAY_IMAGE}
     container_name: eva_whatsapp_gateway_prod
     restart: unless-stopped
     mem_limit: 768m

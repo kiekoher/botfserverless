@@ -10,10 +10,10 @@ logger = logging.getLogger(__name__)
 class SupabaseAdapter:
     def __init__(self, url: str | None = None, key: str | None = None):
         url = url or os.getenv("SUPABASE_URL")
-        key = key or os.getenv("SUPABASE_KEY")
+        key = key or os.getenv("SUPABASE_ANON_KEY")
         if not url or not key:
             raise ValueError(
-                "SUPABASE_URL and SUPABASE_KEY must be set in environment."
+                "SUPABASE_URL and SUPABASE_ANON_KEY must be set in environment."
             )
         self.client: Client = create_client(url, key)
     async def _execute(self, query):
@@ -229,27 +229,74 @@ class SupabaseAdapter:
             logger.error("Error deleting document %s: %s", document_id, e)
             return False
 
-    async def get_billing_info(self, user_id: str):
-        """Fetch billing info for a user."""
+    # === Billing and Subscription Methods ===
+
+    async def get_stripe_customer_id(self, user_id: str) -> str | None:
+        """Retrieves the Stripe customer ID for a given user."""
         try:
-            query = (
-                self.client.table("billing_records")
-                .select("plan, credits_remaining, renewal_date")
-                .eq("user_id", user_id)
-                .limit(1)
-                .single()
-            )
+            query = self.client.table("subscriptions").select("stripe_customer_id").eq("user_id", user_id).limit(1).single()
             response = await self._execute(query)
-            data = response.data or {}
+            return response.data.get("stripe_customer_id") if response.data else None
+        except Exception: # Catches PostgrestError when no rows are found
+            return None
+
+    async def get_user_by_stripe_customer_id(self, customer_id: str):
+        """Finds a user by their Stripe customer ID."""
+        try:
+            query = self.client.table("subscriptions").select("user_id").eq("stripe_customer_id", customer_id).limit(1).single()
+            response = await self._execute(query)
+            return response.data
         except Exception as e:
-            logger.error("Error fetching billing info for user %s: %s", user_id, e)
-            data = {}
-        return {
-            "user_id": user_id,
-            "plan": data.get("plan", "trial"),
-            "credits_remaining": data.get("credits_remaining", 0),
-            "renewal_date": data.get("renewal_date"),
-        }
+            logger.error(f"Error getting user by stripe_customer_id {customer_id}: {e}")
+            return None
+
+    async def get_subscription_for_user(self, user_id: str):
+        """Retrieves the subscription details for a user."""
+        try:
+            query = self.client.table("subscriptions").select("*, plans(*)").eq("user_id", user_id).order("created_at", desc=True).limit(1).single()
+            response = await self._execute(query)
+            return response.data
+        except Exception:
+            return None
+
+    async def create_subscription(self, user_id: str, plan_id: str, status: str, stripe_subscription_id: str, stripe_customer_id: str, current_period_start: str, current_period_end: str, cancel_at_period_end: bool):
+        """Creates or updates a subscription record for a user."""
+        try:
+            # Upsert logic: update if subscription exists, otherwise insert.
+            query = self.client.table("subscriptions").upsert({
+                "user_id": user_id,
+                "plan_id": plan_id,
+                "status": status,
+                "stripe_subscription_id": stripe_subscription_id,
+                "stripe_customer_id": stripe_customer_id,
+                "current_period_start": current_period_start,
+                "current_period_end": current_period_end,
+                "cancel_at_period_end": cancel_at_period_end,
+            }, on_conflict="stripe_subscription_id")
+            response = await self._execute(query)
+            return response.data[0] if response.data else None
+        except Exception as e:
+            logger.error(f"Error creating/updating subscription for user {user_id}: {e}")
+            return None
+
+    async def update_subscription_status(self, stripe_subscription_id: str, new_status: str, cancel_at_period_end: bool, current_period_start: str = None, current_period_end: str = None):
+        """Updates a subscription based on a webhook event."""
+        try:
+            update_data = {
+                "status": new_status,
+                "cancel_at_period_end": cancel_at_period_end,
+            }
+            if current_period_start:
+                update_data["current_period_start"] = current_period_start
+            if current_period_end:
+                update_data["current_period_end"] = current_period_end
+
+            query = self.client.table("subscriptions").update(update_data).eq("stripe_subscription_id", stripe_subscription_id)
+            response = await self._execute(query)
+            return response.data[0] if response.data else None
+        except Exception as e:
+            logger.error(f"Error updating subscription {stripe_subscription_id}: {e}")
+            return None
 
     async def get_quality_metrics(self, user_id: str):
         """Fetch quality metrics for a user."""
