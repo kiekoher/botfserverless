@@ -125,6 +125,7 @@ Para que la automatización funcione, debe configurar los siguientes secrets en 
 -   `SSH_PRIVATE_KEY`: La clave SSH privada para acceder al servidor.
 -   `DOMAIN_NAME`: El nombre de dominio para su servicio (por ejemplo, `eva.yourcompany.com`).
 -   `CERTBOT_EMAIL`: La dirección de correo electrónico para las notificaciones de Let's Encrypt.
+-   `GRAFANA_BASIC_AUTH_USER`: Credenciales para la autenticación básica de Grafana (formato `user:hashed_password`).
 -   Todos los demás secrets requeridos por la aplicación (por ejemplo, `SUPABASE_URL`, `GOOGLE_API_KEY`, etc.).
 
 Con esta configuración, su infraestructura está totalmente automatizada. Simplemente haga push a `main`, y sus cambios serán probados y desplegados.
@@ -149,19 +150,17 @@ Supabase proporciona backups automáticos diarios en sus planes de pago.
 
 Los datos de la sesión de WhatsApp y los datos de Redis (si la persistencia está habilitada) se guardan en volúmenes de Docker en el servidor host.
 
+-   **Estrategia de Backup Automatizada:**
+    El sistema incluye un servicio de backup (`backup`) totalmente automatizado y contenerizado que se ejecuta diariamente a las 3:00 AM UTC. Este servicio se encarga de:
+    1.  Detener de forma segura los servicios con estado (`redis`, `whatsapp-gateway`, etc.).
+    2.  Crear un archivo `.tar.gz` comprimido con los datos de los volúmenes de Docker.
+    3.  Reiniciar los servicios detenidos inmediatamente después de la copia.
+    4.  (Opcional) Subir el backup a un almacenamiento externo compatible con S3 (como Cloudflare R2) usando `rclone`.
+    5.  Rotar y eliminar los backups locales antiguos para evitar que el disco se llene.
+
 -   **Acción Requerida:**
-    1.  Se ha incluido un script `backup.sh` en la raíz del proyecto para automatizar el backup de estos volúmenes.
-    2.  **Configurar el script:** Antes de usarlo, edite las variables en la sección de configuración del script si es necesario (ej. `PROJECT_NAME`).
-    3.  **Automatizar con Cron:** Configure un cronjob en el servidor de producción para que ejecute este script diariamente.
-
-    **Ejemplo de Cronjob (ejecutar a las 3:00 AM todos los días):**
-    1.  Abra el editor de crontab: `crontab -e`
-    2.  Añada la siguiente línea, asegurándose de usar la ruta absoluta a su script:
-        ```cron
-        0 3 * * * /path/to/your/project/backup.sh >> /var/log/eva_backup.log 2>&1
-        ```
-
-    El script se encarga de detener los servicios necesarios, crear un archivo `.tar.gz` comprimido de los volúmenes, y reiniciar los servicios. También incluye una lógica opcional para subir los backups a Cloudflare R2 y para limpiar backups locales antiguos.
+    1.  **No se requiere configuración manual de `cron` en el host.** El proceso está 100% gestionado dentro del entorno de Docker.
+    2.  Para activar los backups externos, configure las variables de entorno `R2_BUCKET_PATH`, `R2_REMOTE_NAME` y las credenciales de `rclone` correspondientes en su archivo `.env.prod`.
 
 ---
 

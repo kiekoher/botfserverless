@@ -3,35 +3,48 @@ set -e
 set -o pipefail
 
 # --- Configuration ---
-# This path is the mount point inside the backup container.
+COMPOSE_FILE="/app/compose.yml"
 BACKUP_DIR="/backups"
-# Number of old backups to keep.
 KEEP_BACKUPS=7
-# (Optional) Healthchecks.io or other monitoring service URL to ping on success.
-HEALTHCHECK_URL="" # e.g., "https://hc-ping.com/YOUR_CHECK_UUID"
-# (Optional) Cloudflare R2 credentials for off-site backups.
-# Ensure rclone is configured on the server with a remote named 'r2'.
-R2_REMOTE_NAME="r2"
-R2_BUCKET_PATH="eva-backups" # The bucket and folder path, e.g., "my-bucket/eva-backups"
+HEALTHCHECK_URL="${HEALTHCHECK_URL}" # Pass through from compose env
+R2_REMOTE_NAME="${R2_REMOTE_NAME:-r2}"
+R2_BUCKET_PATH="${R2_BUCKET_PATH}" # Pass through from compose env
+
+# Services with volumes that need to be stopped for a safe backup
+SERVICES_TO_STOP=(
+  "redis"
+  "whatsapp-gateway"
+  "traefik"
+  "prometheus"
+  "alertmanager"
+  "grafana"
+)
 
 # --- Script Logic ---
 echo "---"
-echo "Starting backup for project EVA at $(date)"
+echo "Starting backup for project ${COMPOSE_PROJECT_NAME} at $(date)"
 
 # Ensure backup directory exists
 mkdir -p "$BACKUP_DIR"
 
-# Define Docker volumes to back up. These must match the volume names in docker-compose.
-# The script will look for volumes in the standard Docker directory.
-# Note: Project name is derived from the container names (e.g., eva_redis_prod -> eva)
-PROJECT_NAME=$(docker ps --format '{{.Names}}' | grep '_redis_prod' | sed 's/_redis_prod//')
-if [ -z "$PROJECT_NAME" ]; then
-    echo "ERROR: Could not determine project name from running containers. Expected a container like 'eva_redis_prod'."
-    exit 1
-fi
-echo "Detected project name: $PROJECT_NAME"
+# Ensure services are restarted even if the script fails
+function cleanup {
+  echo "---"
+  echo "Restarting services..."
+  docker-compose -f "$COMPOSE_FILE" up -d "${SERVICES_TO_STOP[@]}"
+  echo "Services restarted."
+  echo "---"
+}
+trap cleanup EXIT
 
-DOCKER_VOLUMES_PATH="/var/lib/docker/volumes"
+# --- Pre-Backup Actions ---
+echo "Stopping services with persistent volumes: ${SERVICES_TO_STOP[*]}..."
+docker-compose -f "$COMPOSE_FILE" stop "${SERVICES_TO_STOP[@]}"
+echo "Services stopped."
+
+# --- Create Backup Archive ---
+# Note: The project name is automatically used by docker-compose to name volumes.
+PROJECT_NAME=${COMPOSE_PROJECT_NAME:-eva} # Default to 'eva' if not set
 VOLUMES_TO_BACKUP=(
   "${PROJECT_NAME}_redis_data"
   "${PROJECT_NAME}_whatsapp_session_prod"
@@ -41,19 +54,11 @@ VOLUMES_TO_BACKUP=(
   "${PROJECT_NAME}_grafana_data"
 )
 
-# --- Pre-Backup Actions ---
-echo "Forcing Redis to save data to disk (BGSAVE)..."
-# Send a BGSAVE command to Redis to ensure data is flushed to disk without blocking.
-docker exec "${PROJECT_NAME}_redis_prod" redis-cli BGSAVE
-echo "Waiting a few seconds for BGSAVE to initiate..."
-sleep 5
-
-# --- Create Backup Archive ---
+DOCKER_VOLUMES_PATH="/var/lib/docker/volumes"
 BACKUP_FILENAME="${PROJECT_NAME}_$(date +%Y-%m-%d_%H-%M-%S).tar.gz"
 BACKUP_FULL_PATH="$BACKUP_DIR/$BACKUP_FILENAME"
 
 echo "Creating tarball of Docker volumes..."
-# Build the list of volume paths to include in the tar command.
 VOLUME_PATHS=()
 for vol in "${VOLUMES_TO_BACKUP[@]}"; do
   if docker volume inspect "$vol" &> /dev/null; then
@@ -66,14 +71,15 @@ done
 
 if [ ${#VOLUME_PATHS[@]} -eq 0 ]; then
   echo "ERROR: No volumes found to back up. Aborting."
+  # The trap will still run to restart services
   exit 1
 fi
 
-# Create a compressed tarball of the specified volumes.
 if tar --create --gzip --file "$BACKUP_FULL_PATH" "${VOLUME_PATHS[@]}"; then
   echo "Successfully created backup: $BACKUP_FULL_PATH"
 else
   echo "ERROR: Failed to create backup tarball."
+  # The trap will still run to restart services
   exit 1
 fi
 
@@ -84,7 +90,6 @@ if command -v rclone &> /dev/null && [ -n "$R2_BUCKET_PATH" ]; then
     echo "Successfully uploaded backup to R2."
   else
     echo "WARNING: Failed to upload backup to R2. The local backup is still available."
-    # Depending on policy, you might want this to be a fatal error (exit 1).
   fi
 else
   echo "Skipping off-site backup (rclone not found or R2_BUCKET_PATH not set)."
@@ -92,7 +97,6 @@ fi
 
 # --- Clean Up Old Local Backups ---
 echo "Cleaning up old local backups (keeping last $KEEP_BACKUPS)..."
-# Find and delete backups in the backup directory that are older than the N most recent ones.
 ls -1t "$BACKUP_DIR" | grep ".tar.gz" | tail -n +$(($KEEP_BACKUPS + 1)) | while read -r old_backup; do
   echo "Deleting old backup: $old_backup"
   rm -- "$BACKUP_DIR/$old_backup"
@@ -105,4 +109,4 @@ if [ -n "$HEALTHCHECK_URL" ]; then
 fi
 
 echo "Backup process completed successfully at $(date)."
-echo "----------------------------------------------------"
+# The 'trap cleanup EXIT' will handle restarting the services automatically.

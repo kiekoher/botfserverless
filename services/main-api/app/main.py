@@ -299,13 +299,51 @@ app.include_router(reports.router, prefix="/api/v1")
 # Ciclo de vida de la App manejado por "lifespan" en la creación de FastAPI.
 # --------------------------
 @app.get("/health")
-async def health(request: Request):
-    ok = False
-    try:
-        ok = await request.app.state.redis.ping()
-    except Exception as e:
-        logger.error("[health] Redis ping error: %s", e)
-    return JSONResponse({"status": "ok", "redis": ok})
+async def health():
+    return JSONResponse({"status": "ok"})
+
+@app.get("/health/deep")
+async def deep_health(request: Request):
+    """
+    Performs a deep health check, verifying connectivity to critical services.
+    Returns 200 OK if all services are reachable, otherwise 503 Service Unavailable.
+    """
+    redis_ok = False
+    db_ok = False
+    errors = []
+
+    async def check_redis():
+        nonlocal redis_ok
+        try:
+            redis_ok = await request.app.state.redis.ping()
+        except Exception as e:
+            logger.error("[deep_health] Redis ping error: %s", e)
+            errors.append(f"Redis: {e}")
+
+    async def check_db():
+        nonlocal db_ok
+        try:
+            # Executes a simple query to check DB connectivity.
+            await request.app.state.supabase_adapter.get_db().rpc("is_rls_enabled").execute()
+            db_ok = True
+        except Exception as e:
+            logger.error("[deep_health] Database connection error: %s", e)
+            errors.append(f"Database: {e}")
+
+    await asyncio.gather(check_redis(), check_db())
+
+    if redis_ok and db_ok:
+        return JSONResponse({"status": "healthy", "redis": True, "database": True})
+    else:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "unhealthy",
+                "redis": redis_ok,
+                "database": db_ok,
+                "errors": errors,
+            },
+        )
 
 
 if __name__ == "__main__":

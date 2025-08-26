@@ -11,7 +11,7 @@ services:
       - SUPABASE_DB_PASSWORD=${SUPABASE_DB_PASSWORD}
       - SUPABASE_PROJECT_ID=${SUPABASE_PROJECT_ID}
     networks:
-      - eva-net
+      - backend_net
 
   e2e-tester:
     build:
@@ -27,7 +27,13 @@ services:
       - TEST_USER_EMAIL=${TEST_USER_EMAIL}
       - TEST_USER_PASSWORD=${TEST_USER_PASSWORD}
     networks:
-      - eva-net
+      - frontend_net
     depends_on:
       - frontend
       - main-api
+
+networks:
+  frontend_net:
+    driver: bridge
+  backend_net:
+    driver: bridge
