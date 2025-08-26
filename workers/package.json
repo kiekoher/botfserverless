@@ -1,0 +1,25 @@
+{
+  "name": "eva-workers",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "lint": "eslint .",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240423.0",
+    "typescript": "^5.4.5",
+    "wrangler": "^3.57.0",
+    "eslint": "^8.57.0",
+    "@typescript-eslint/eslint-plugin": "^7.12.0",
+    "@typescript-eslint/parser": "^7.12.0"
+  },
+  "dependencies": {
+    "@google-cloud/speech": "^6.5.0",
+    "@supabase/supabase-js": "^2.43.4",
+    "@aws-sdk/client-s3": "^3.583.0",
+    "pino": "^9.1.0"
+  }
+}
