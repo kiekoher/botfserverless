@@ -109,9 +109,37 @@ jobs:
   # ============================================================================
   #                              DEPLOYMENT JOBS
   # ============================================================================
+  test-e2e:
+    name: Run End-to-End Tests
+    # This job runs after migrations are done to ensure the DB schema is current.
+    # It tests the live API on Vercel before deploying the gateway.
+    needs: [deploy-migrations]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Install Doppler CLI
+        uses: doppler/cli-action@v1
+        with:
+          token: ${{ secrets.DOPPLER_TOKEN_PROD }}
+
+      - name: Run E2E test script
+        # Doppler injects the necessary secrets (MAIN_API_URL, SUPABASE_URL, etc.)
+        run: doppler run --project eva --config prd -- python services/tests/end-to-end.py
+
   deploy-gateway:
     name: Deploy WhatsApp Gateway
-    needs: [build-and-push-gateway] # Depends on the build job
+    # This job must wait for migrations and E2E tests to complete.
+    needs: [build-and-push-gateway, test-e2e]
     runs-on: ubuntu-latest
     steps:
       - name: Configure SSH
@@ -129,8 +157,9 @@ jobs:
           DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN_PROD }}
           IMAGE_TAG: ${{ github.sha }}
           IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/eva-whatsapp-gateway
+          GHCR_USER: ${{ github.actor }}
         run: |
-          ssh ${{ secrets.GATEWAY_SSH_USER }}@${{ secrets.GATEWAY_SSH_HOST }} "export DOPPLER_TOKEN='${DOPPLER_TOKEN}' && export IMAGE_TAG='${IMAGE_TAG}' && export IMAGE_NAME='${IMAGE_NAME,,}' && cd ~/eva-platform && bash scripts/deploy.sh"
+          ssh ${{ secrets.GATEWAY_SSH_USER }}@${{ secrets.GATEWAY_SSH_HOST }} "export DOPPLER_TOKEN='${DOPPLER_TOKEN}' && export IMAGE_TAG='${IMAGE_TAG}' && export IMAGE_NAME='${IMAGE_NAME,,}' && export GHCR_USER='${GHCR_USER}' && cd ~/eva-platform && bash scripts/deploy.sh"
 
   deploy-migrations:
     name: Deploy Database Migrations

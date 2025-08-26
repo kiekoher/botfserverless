@@ -57,20 +57,56 @@ Provisiona un servidor **Ubuntu 22.04 LTS** en tu proveedor de nube preferido (D
 
 ---
 
+## 🛡️ Estrategia de Backup y Recuperación de Desastres
+
+Una estrategia de backup robusta es crítica para la continuidad del negocio. La plataforma EVA tiene dos componentes con estado que requieren backups: el **Gateway de WhatsApp** y la **Base de Datos PostgreSQL (Supabase)**.
+
+### 1. Backup del Gateway de WhatsApp
+
+-   **Qué se respalda:** El estado de la sesión de WhatsApp, almacenado en un volumen de Docker.
+-   **Cómo funciona:** El script `scripts/backup.sh` se ejecuta diariamente a través de un cron job en el servidor del gateway. Comprime el volumen de Docker y lo sube a un bucket privado en Cloudflare R2.
+-   **Monitorización:** El script notifica a un monitor de heartbeat en BetterStack. Si el backup falla, se generará una alerta.
+
+### 2. Backup de la Base de Datos Principal (Supabase)
+
+-   **Problema Crítico:** Los backups diarios automáticos de Supabase pueden implicar una pérdida de hasta 24 horas de datos (RPO de 24h), lo cual es inaceptable para una aplicación transaccional como EVA.
+-   **Solución Recomendada (Crítica):** Habilitar el add-on de **Point-in-Time Recovery (PITR)** en Supabase.
+    -   **Ventaja Principal:** Reduce el objetivo de punto de recuperación (RPO) a ~2 minutos, minimizando la pérdida de datos en caso de un desastre.
+    -   **Costo:** PITR es un add-on de pago y requiere un tipo de instancia (compute) "Small" o superior. Este costo es una inversión necesaria para la seguridad de los datos.
+
+#### **Cómo Habilitar y Usar PITR en Supabase:**
+
+1.  **Activar PITR:**
+    -   Ve a tu proyecto en el [Dashboard de Supabase](https://supabase.com/dashboard/).
+    -   En el menú de la izquierda, navega a `Settings` > `Add-ons`.
+    -   Encuentra **Point-in-Time Recovery** y haz clic en "Enable".
+    -   Selecciona el período de retención deseado (se recomiendan 7 días como mínimo) y confirma. Es posible que necesites mejorar tu instancia si estás en el plan gratuito.
+
+2.  **Proceso de Recuperación (En caso de desastre):**
+    -   Navega a `Database` > `Backups` > `Point in Time`.
+    -   Haz clic en "Start a restore".
+    -   Se te presentará un calendario y un selector de tiempo. Elige el punto exacto al que deseas restaurar la base de datos.
+    -   **IMPORTANTE:** La restauración es una operación destructiva que pausará tu aplicación. Lee cuidadosamente las advertencias en el dashboard de Supabase antes de confirmar.
+    -   El proceso de restauración puede tardar desde minutos hasta horas, dependiendo del tamaño de tu base de datos.
+
+**Nota Importante:** Los backups de la base de datos de Supabase **NO** incluyen los archivos almacenados en Cloudflare R2 (como los audios de los clientes). La estrategia de backup dual (script para el gateway, PITR para la BD) es esencial para una cobertura completa.
+
+---
+
 ## ⚙️ Automatización del Despliegue (CI/CD)
 
-El repositorio está configurado con un pipeline de GitHub Actions (`.github/workflows/deploy.yml`) que automatiza las tareas de prueba y despliegue.
+El repositorio está configurado con un pipeline de GitHub Actions (`.github/workflows/deploy.yml`) que automatiza un despliegue progresivo y seguro.
 
 - **Disparadores:** El pipeline se activa en cada `push` a la rama `main` o puede ser ejecutado manualmente.
-- **Jobs de Prueba:**
-  1.  `test-api`: Ejecuta `pytest` para la API de Python.
-  2.  `test-frontend`: Ejecuta `npm test` para la aplicación Next.js.
-  3.  `test-gateway`: Ejecuta `npm test` para el servicio de gateway de Node.js.
-- **Jobs de Despliegue (Condicionales):**
-  1.  `deploy-gateway`: Si las pruebas del gateway pasan y hay cambios en sus archivos, se conecta por SSH al servidor y ejecuta `scripts/deploy.sh`.
-  2.  `deploy-migrations`: Si las pruebas de la API pasan y hay nuevas migraciones, aplica las migraciones a la base de datos de Supabase.
 
-**Un despliegue fallido en cualquier paso detendrá todo el proceso para prevenir errores en producción.**
+- **Flujo del Pipeline:**
+  1.  **Pruebas Unitarias:** Se ejecutan en paralelo las pruebas para la API (`test-api`), el frontend (`test-frontend`) y el gateway (`test-gateway`). Si alguna falla, el pipeline se detiene.
+  2.  **Despliegue de Migraciones:** Si las pruebas de la API pasan y se detectan cambios en `supabase/migrations/`, el job `deploy-migrations` aplica los cambios al esquema de la base de datos de producción.
+  3.  **Build y Push del Gateway:** En paralelo, si las pruebas del gateway pasan y hay cambios en su código, el job `build-and-push-gateway` crea una nueva imagen Docker, la etiqueta con el hash del commit y la sube al registro de contenedores de GitHub (`ghcr.io`).
+  4.  **Pruebas End-to-End (E2E):** Una vez que las migraciones de la base de datos se han aplicado, el job `test-e2e` se ejecuta. Esta prueba crítica valida el flujo completo de la API (desplegada en Vercel) y su interacción con la base de datos.
+  5.  **Despliegue del Gateway:** Solo si las pruebas E2E y el build del gateway han sido exitosos, el job `deploy-gateway` se conecta por SSH al servidor y ejecuta `scripts/deploy.sh`. Este script hace `docker pull` de la nueva imagen desde `ghcr.io` y reinicia el servicio.
+
+- **Seguridad:** Un despliegue fallido en cualquier paso crítico (pruebas, build, migraciones, E2E) detendrá todo el proceso para prevenir errores en producción.
 
 ---
 
@@ -174,8 +210,9 @@ STRIPE_WEBHOOK_SECRET
 WHATSAPP_USER_ID
 
 # Observability (BetterStack)
-BETTERSTACK_SOURCE_TOKEN
-BACKUP_HEARTBEAT_URL
+BETTERSTACK_SOURCE_TOKEN # El token de tu "source" de BetterStack Logs.
+BETTERSTACK_INGEST_HOST # El host de ingesta de syslog, ej: "syslog.betterstack.com". Se obtiene de la configuración de la "source".
+BACKUP_HEARTBEAT_URL # La URL para el monitor de heartbeat del backup.
 ```
 
 ### Configuración de Secretos de GitHub
