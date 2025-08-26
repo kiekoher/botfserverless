@@ -9,7 +9,8 @@ services:
     mem_limit: 768m
     cpus: '0.75'
     environment:
-      # Variables to be set in .env.prod file
+      # Variables are injected by a secret manager like Doppler at runtime.
+      # See DEPLOYMENT_GUIDE.md for more information on which variables to set.
       - MAIN_API_URL=${MAIN_API_URL}
       - R2_ENDPOINT_URL=${R2_ENDPOINT_URL}
       - R2_BUCKET_NAME=${R2_BUCKET_NAME}
