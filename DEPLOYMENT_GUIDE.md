@@ -125,12 +125,13 @@ cat ~/.ssh/github_actions_key.pub >> ~/.ssh/authorized_keys
 ```
 
 ### 4. Configuración del Cron Job para Backups
-1.  Abre el editor de cron: `crontab -e`
+1.  Abre el editor de cron del usuario **root**: `sudo crontab -e`
 2.  Añade la siguiente línea para ejecutar el backup todos los días a las 3:00 AM. **Importante:** El script necesita las variables de entorno de Doppler para funcionar.
     ```crontab
     # Ejecutar el backup del gateway de WhatsApp
     0 3 * * * doppler run --project eva --config prd -- bash /home/ubuntu/eva-platform/scripts/backup.sh >> /var/log/backup.log 2>&1
     ```
+    **Nota:** Se debe usar `sudo crontab -e` para que el cron job se ejecute como el usuario `root`. Esto es necesario porque el script de backup necesita permisos para leer los volúmenes de Docker (`/var/lib/docker/volumes`), que son propiedad de `root`.
 
 ---
 
@@ -141,26 +142,33 @@ cat ~/.ssh/github_actions_key.pub >> ~/.ssh/authorized_keys
 # Supabase
 SUPABASE_URL
 NEXT_PUBLIC_SUPABASE_URL
-SUPABASE_ANON_KEY
-NEXT_PUBLIC_SUPABASE_ANON_KEY
-SUPABASE_SERVICE_ROLE_KEY
-SUPABASE_DB_PASSWORD # Mover la contraseña de la DB aquí también
+SUPABASE_ANON_KEY # La clave pública (anon) de Supabase. Usada por el frontend y el backend.
+NEXT_PUBLIC_SUPABASE_ANON_KEY # La misma clave pública (anon) para el frontend.
+SUPABASE_SERVICE_ROLE_KEY # La clave de servicio (secreta) para bypass RLS en tareas de admin.
+SUPABASE_DB_PASSWORD # Contraseña de la base de datos de Postgres.
+SUPABASE_JWT_SECRET # El secreto para firmar y verificar JWTs. Se encuentra en Settings > API.
 
 # Google Cloud & AI Services
 GOOGLE_APPLICATION_CREDENTIALS_JSON
 OPENAI_API_KEY
 DEEPSEEK_API_KEY
 
-# Cloudflare R2 & Queues
+# Cloudflare R2, Queues & API
 R2_BUCKET_NAME
 R2_ACCOUNT_ID
 R2_ACCESS_KEY_ID
 R2_SECRET_ACCESS_KEY
 CLOUDFLARE_QUEUE_ID
+CLOUDFLARE_API_TOKEN # Token de API de Cloudflare con permisos para Queues
 R2_ENDPOINT_URL # Ej: https://<ACCOUNT_ID>.r2.cloudflarestorage.com
 
 # Vercel
 MAIN_API_URL
+FRONTEND_URL # The public URL of the Vercel frontend. e.g. https://my-app.vercel.app
+
+# Stripe
+STRIPE_API_KEY
+STRIPE_WEBHOOK_SECRET
 
 # WhatsApp Gateway
 WHATSAPP_USER_ID

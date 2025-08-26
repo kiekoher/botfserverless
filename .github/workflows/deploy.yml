@@ -60,11 +60,11 @@ jobs:
         run: npm test
 
   # ============================================================================
-  #                              DEPLOYMENT JOBS
+  #                           BUILD & PUSH JOBS
   # ============================================================================
-  deploy-gateway:
-    name: Deploy WhatsApp Gateway
-    needs: [test-gateway] # Depends on its own tests
+  build-and-push-gateway:
+    name: Build and Push Gateway Image
+    needs: [test-gateway]
     if: |
       github.event_name == 'workflow_dispatch' ||
       (
@@ -73,10 +73,45 @@ jobs:
         (
           contains(join(github.event.commits.*.modified, ' '), 'services/whatsapp-gateway/') ||
           contains(join(github.event.commits.*.added, ' '), 'services/whatsapp-gateway/') ||
-          contains(join(github.event.commits.*.removed, ' '), 'services/whatsapp-gateway/') ||
-          contains(join(github.event.commits.*.modified, ' '), 'docker-compose.prod.yml')
+          contains(join(github.event.commits.*.removed, ' '), 'services/whatsapp-gateway/')
         )
       )
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Lowercase repository owner
+        id: string
+        uses: ASzc/change-string-case-action@v5
+        with:
+          string: ${{ github.repository_owner }}
+
+      - name: Build and push Docker image
+        id: push
+        uses: docker/build-push-action@v4
+        with:
+          context: ./services/whatsapp-gateway
+          push: true
+          tags: ghcr.io/${{ steps.string.outputs.lowercase }}/eva-whatsapp-gateway:${{ github.sha }}
+          labels: org.opencontainers.image.source=${{ github.repositoryUrl }}
+
+  # ============================================================================
+  #                              DEPLOYMENT JOBS
+  # ============================================================================
+  deploy-gateway:
+    name: Deploy WhatsApp Gateway
+    needs: [build-and-push-gateway] # Depends on the build job
     runs-on: ubuntu-latest
     steps:
       - name: Configure SSH
@@ -92,8 +127,10 @@ jobs:
       - name: Execute Deployment Script on Server
         env:
           DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN_PROD }}
+          IMAGE_TAG: ${{ github.sha }}
+          IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/eva-whatsapp-gateway
         run: |
-          ssh ${{ secrets.GATEWAY_SSH_USER }}@${{ secrets.GATEWAY_SSH_HOST }} "cd ~/eva-platform && export DOPPLER_TOKEN=${DOPPLER_TOKEN} && bash scripts/deploy.sh"
+          ssh ${{ secrets.GATEWAY_SSH_USER }}@${{ secrets.GATEWAY_SSH_HOST }} "export DOPPLER_TOKEN='${DOPPLER_TOKEN}' && export IMAGE_TAG='${IMAGE_TAG}' && export IMAGE_NAME='${IMAGE_NAME,,}' && cd ~/eva-platform && bash scripts/deploy.sh"
 
   deploy-migrations:
     name: Deploy Database Migrations
@@ -119,6 +156,11 @@ jobs:
         with:
           version: latest
 
+      - name: Install Doppler CLI
+        uses: doppler/cli-action@v1
+        with:
+          token: ${{ secrets.DOPPLER_TOKEN_PROD }}
+
       - name: Link Supabase project
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
@@ -129,6 +171,7 @@ jobs:
       - name: Push database migrations
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
         run: |
+          # Fetch the DB password from Doppler and push migrations
+          export SUPABASE_DB_PASSWORD=$(doppler run -p eva -c prd --get-plain SUPABASE_DB_PASSWORD)
           supabase db push
