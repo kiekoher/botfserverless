@@ -31,10 +31,24 @@ Este documento contiene todo lo que necesitas saber para configurar, desplegar y
 
 ## 🧪 Pruebas
 
-Para ejecutar las pruebas de cada componente, consulta las instrucciones en sus respectivos directorios:
-- `api/`: Pruebas de la API de FastAPI.
-- `frontend/`: Pruebas del panel de Next.js.
-- `services/whatsapp-gateway/`: Pruebas del gateway.
+Para ejecutar las pruebas de cada componente, usa los siguientes comandos desde el directorio raíz del proyecto:
+
+- **API (Python/FastAPI):**
+  ```bash
+  pytest api/
+  ```
+
+- **Frontend (Next.js):**
+  ```bash
+  # Desde el directorio /frontend
+  npm test
+  ```
+
+- **Gateway de WhatsApp (Node.js):**
+  ```bash
+  # Desde el directorio /services/whatsapp-gateway
+  npm test
+  ```
 
 ---
 
