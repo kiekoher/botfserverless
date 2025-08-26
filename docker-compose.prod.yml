@@ -36,6 +36,15 @@ services:
       - "--certificatesresolvers.myresolver.acme.httpchallenge.entrypoint=web"
       - "--certificatesresolvers.myresolver.acme.email=${CERTBOT_EMAIL}"
       - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
+    labels:
+      # Define a global middleware for security headers
+      - "traefik.http.middlewares.secure-headers.headers.forceSTSHeader=true"
+      - "traefik.http.middlewares.secure-headers.headers.stsSeconds=31536000"
+      - "traefik.http.middlewares.secure-headers.headers.stsIncludeSubdomains=true"
+      - "traefik.http.middlewares.secure-headers.headers.stsPreload=true"
+      - "traefik.http.middlewares.secure-headers.headers.contentTypeNosniff=true"
+      - "traefik.http.middlewares.secure-headers.headers.browserXssFilter=true"
+      - "traefik.http.middlewares.secure-headers.headers.customFrameOptionsValue=SAMEORIGIN"
     ports:
       - "80:80"
       - "443:443"
@@ -95,6 +104,7 @@ services:
       - "traefik.http.routers.main-api.rule=Host(`${DOMAIN_NAME}`) && PathPrefix(`/api`)"
       - "traefik.http.routers.main-api.entrypoints=websecure"
       - "traefik.http.routers.main-api.tls.certresolver=myresolver"
+      - "traefik.http.routers.main-api.middlewares=secure-headers@docker"
       - "traefik.http.services.main-api.loadbalancer.server.port=8000"
       - "traefik.docker.network=frontend_net"
     networks:
@@ -124,10 +134,11 @@ services:
     depends_on:
       - redis
     healthcheck:
-      test: ["CMD-SHELL", "node healthcheck.js"]
-      interval: 10s
-      timeout: 5s
+      test: ["CMD-SHELL", "curl -f http://localhost:9100/health || exit 1"]
+      interval: 30s
+      timeout: 10s
       retries: 5
+      start_period: 30s
     logging:
       driver: loki
       options:
@@ -281,6 +292,7 @@ services:
       - "traefik.http.routers.frontend.rule=Host(`${DOMAIN_NAME}`)"
       - "traefik.http.routers.frontend.entrypoints=websecure"
       - "traefik.http.routers.frontend.tls.certresolver=myresolver"
+      - "traefik.http.routers.frontend.middlewares=secure-headers@docker"
       - "traefik.http.services.frontend.loadbalancer.server.port=3000"
       - "traefik.docker.network=frontend_net"
     networks:
@@ -384,7 +396,7 @@ services:
       - "traefik.http.routers.grafana.rule=Host(`${DOMAIN_NAME}`) && PathPrefix(`/grafana`)"
       - "traefik.http.routers.grafana.entrypoints=websecure"
       - "traefik.http.routers.grafana.tls.certresolver=myresolver"
-      - "traefik.http.routers.grafana.middlewares=grafana-auth"
+      - "traefik.http.routers.grafana.middlewares=grafana-auth,secure-headers@docker"
       - "traefik.http.services.grafana.loadbalancer.server.port=3000"
       - "traefik.docker.network=frontend_net"
     logging:

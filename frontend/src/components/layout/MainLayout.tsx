@@ -16,7 +16,13 @@ const MainLayout = ({ children }: { children: React.ReactNode }) => {
               <Link href="/dashboard/agents" className="hover:text-gray-300">Agentes</Link>
             </li>
             <li className="mb-4">
-              <Link href="/dashboard/settings" className="hover:text-gray-300">Configuración</Link>
+              <Link href="/dashboard/config" className="hover:text-gray-300">Configuración</Link>
+            </li>
+            <li className="mb-4 border-t border-gray-700 pt-4 mt-4">
+              <span className="text-sm font-semibold text-gray-500">Admin</span>
+            </li>
+            <li className="mb-4">
+              <Link href="/dashboard/admin/dlq" className="hover:text-gray-300">Cola de Errores (DLQ)</Link>
             </li>
           </ul>
         </nav>

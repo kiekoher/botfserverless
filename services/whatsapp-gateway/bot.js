@@ -76,11 +76,30 @@ const s3Client = new S3Client({
 });
 logger.info("☁️  R2 S3 Client Initialized.");
 
-// Metrics server
+// Health and Metrics server
 const metricsServer = http.createServer(async (req, res) => {
     if (req.url === '/metrics') {
         res.setHeader('Content-Type', clientMetrics.register.contentType);
         res.end(await clientMetrics.register.metrics());
+    } else if (req.url === '/health') {
+        try {
+            const state = await client.getState();
+            if (state === 'CONNECTED') {
+                res.statusCode = 200;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ status: 'ok', state: state }));
+            } else {
+                logger.warn(`Healthcheck failed: client state is ${state}`);
+                res.statusCode = 503;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ status: 'error', state: state }));
+            }
+        } catch (e) {
+            logger.error('Healthcheck failed with error:', e.message);
+            res.statusCode = 500;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ status: 'error', message: e.message }));
+        }
     } else {
         res.statusCode = 404;
         res.end();

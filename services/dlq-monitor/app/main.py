@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 REDIS_HOST = os.getenv("REDIS_HOST", "redis")
 REDIS_URL = f"redis://{REDIS_HOST}:6379"
 DLQ_STREAM = "events:dead_letter_queue"
+DLQ_PERSISTENT_LIST = "dlq:persistent_failures"
 CONSUMER_GROUP = "group:dlq-monitor"
 CONSUMER_NAME = f"consumer:dlq-monitor-{os.getpid()}"
 
@@ -49,17 +50,24 @@ async def handle_messages(redis: Redis):
 
             for _, messages in response:
                 for message_id, message_data in messages:
-                    # Log as a structured JSON for better parsing and alerting
+                    # Persist the failed message to a simple list for reprocessing
+                    message_to_persist = {
+                        "message_id": message_id,
+                        "data": message_data,
+                    }
+                    await redis.lpush(DLQ_PERSISTENT_LIST, json.dumps(message_to_persist))
+
+                    # Log that the message has been persisted for manual review
                     log_payload = {
-                        "alert": "DeadLetterQueueMessageReceived",
+                        "alert": "DeadLetterQueueMessagePersisted",
                         "stream": DLQ_STREAM,
                         "message_id": message_id,
                         "service_name": message_data.get("error_service", "unknown"),
-                        "payload": message_data
+                        "action": f"Message persisted to list '{DLQ_PERSISTENT_LIST}' for reprocessing."
                     }
                     logger.critical(json.dumps(log_payload))
 
-                    # Acknowledge the message so it's not processed again
+                    # Acknowledge the message so it's removed from the DLQ stream
                     await redis.xack(DLQ_STREAM, CONSUMER_GROUP, message_id)
 
         except Exception as e:
