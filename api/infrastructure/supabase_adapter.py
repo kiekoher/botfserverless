@@ -34,7 +34,14 @@ class SupabaseAdapter:
                 .single()
             )
             response = await self._execute(query)
-            return response.data
+
+            agent_data = response.data
+            if agent_data and "config" in agent_data:
+                # Unpack the config dict into the main dict
+                config_data = agent_data.pop("config")
+                agent_data.update(config_data)
+
+            return agent_data
         except Exception as e:
             logger.error("Error fetching agent for user %s: %s", user_id, e)
             return None
@@ -72,19 +79,26 @@ class SupabaseAdapter:
             )
             existing_agent = await self._execute(existing_query)
 
+            # This dictionary must match the table schema.
+            # 'product_description' goes into the 'config' JSONB field.
             agent_data = {
                 "user_id": user_id,
                 "name": name,
-                "product_description": product_description,
                 "base_prompt": base_prompt,
-                "status": "active"
+                "status": "active",
+                "config": {
+                    "product_description": product_description
+                }
             }
 
             if existing_agent.data:
+                # Update existing agent
+                agent_id = existing_agent.data['id']
                 response = await self._execute(
-                    self.client.table("agents").update(agent_data).eq("user_id", user_id)
+                    self.client.table("agents").update(agent_data).eq("id", agent_id)
                 )
             else:
+                # Insert new agent
                 response = await self._execute(
                     self.client.table("agents").insert(agent_data)
                 )

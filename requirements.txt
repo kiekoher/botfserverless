@@ -15,4 +15,4 @@ pydub==0.25.1
 pytest-asyncio==0.23.8
 pytest-mock==3.14.0
 prometheus-fastapi-instrumentator==7.0.0
-PyJWT # For creating mock JWTs in tests
+PyJWT==2.10.1 # For creating mock JWTs in tests (version constraint from supabase-auth)

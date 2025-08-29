@@ -9,6 +9,10 @@
 
 Sigue estos pasos en orden para configurar y desplegar la plataforma completa.
 
+### **Paso 0: Checklist de Verificación Previa (Acción Requerida)**
+
+- [ ] **Activar Point-in-Time Recovery (PITR) en Supabase:** Este es el paso **más crítico** para la seguridad de los datos. Antes de continuar, ve a `Settings > Add-ons` en tu dashboard de Supabase y activa PITR. Esto reduce el riesgo de pérdida de datos de 24 horas a menos de 2 minutos. Consulta la sección **[Backup de la Base de Datos Principal](#2-backup-de-la-base-de-datos-principal-supabase)** para más detalles. No continúes sin activar esta opción.
+
 ### **Paso 1: Configurar Cuentas de Servicios Externos**
 
 Antes de tocar el código, necesitas cuentas en los siguientes servicios:
