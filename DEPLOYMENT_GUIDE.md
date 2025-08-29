@@ -69,25 +69,22 @@ Una estrategia de backup robusta es crítica para la continuidad del negocio. La
 
 ### 2. Backup de la Base de Datos Principal (Supabase)
 
--   **Problema Crítico:** Los backups diarios automáticos de Supabase pueden implicar una pérdida de hasta 24 horas de datos (RPO de 24h), lo cual es inaceptable para una aplicación transaccional como EVA.
--   **Solución Recomendada (Crítica):** Habilitar el add-on de **Point-in-Time Recovery (PITR)** en Supabase.
-    -   **Ventaja Principal:** Reduce el objetivo de punto de recuperación (RPO) a ~2 minutos, minimizando la pérdida de datos en caso de un desastre.
-    -   **Costo:** PITR es un add-on de pago y requiere un tipo de instancia (compute) "Small" o superior. Este costo es una inversión necesaria para la seguridad de los datos.
+-   **Estrategia de Recuperación Avanzada:** Para garantizar la máxima integridad de los datos y minimizar la pérdida de información (RPO de ~2 minutos), la plataforma **requiere** el uso de la funcionalidad **Point-in-Time Recovery (PITR)** de Supabase.
+-   **Justificación de Seguridad:** Los backups diarios tradicionales de Supabase presentan un objetivo de punto de recuperación (RPO) de 24 horas, lo cual es un riesgo inaceptable para una aplicación transaccional. PITR es la solución implementada para mitigar este riesgo.
+-   **Requisito de Infraestructura:** La activación de PITR es un paso **obligatorio** durante la configuración y requiere una instancia de Supabase de tipo "Small" o superior. Este costo es una inversión necesaria en la seguridad de los datos.
 
-#### **Cómo Habilitar y Usar PITR en Supabase:**
+#### **Procedimiento de Configuración y Uso de PITR**
 
-1.  **Activar PITR:**
-    -   Ve a tu proyecto en el [Dashboard de Supabase](https://supabase.com/dashboard/).
-    -   En el menú de la izquierda, navega a `Settings` > `Add-ons`.
-    -   Encuentra **Point-in-Time Recovery** y haz clic en "Enable".
-    -   Selecciona el período de retención deseado (se recomiendan 7 días como mínimo) y confirma. Es posible que necesites mejorar tu instancia si estás en el plan gratuito.
+1.  **Activación Mandatoria de PITR:**
+    -   Durante la configuración inicial del proyecto en Supabase, es **obligatorio** activar el add-on de **Point-in-Time Recovery**.
+    -   **Ubicación:** `Settings` > `Add-ons` en el dashboard de Supabase.
+    -   **Acción:** Habilita "Point-in-Time Recovery" y configura un período de retención de **al menos 7 días**.
+    -   **Nota:** Esto requiere una instancia de cómputo "Small" o superior.
 
-2.  **Proceso de Recuperación (En caso de desastre):**
-    -   Navega a `Database` > `Backups` > `Point in Time`.
-    -   Haz clic en "Start a restore".
-    -   Se te presentará un calendario y un selector de tiempo. Elige el punto exacto al que deseas restaurar la base de datos.
-    -   **IMPORTANTE:** La restauración es una operación destructiva que pausará tu aplicación. Lee cuidadosamente las advertencias en el dashboard de Supabase antes de confirmar.
-    -   El proceso de restauración puede tardar desde minutos hasta horas, dependiendo del tamaño de tu base de datos.
+2.  **Proceso de Recuperación de Datos (En caso de desastre):**
+    -   La restauración se realiza desde `Database` > `Backups` > `Point in Time`.
+    -   Se debe seleccionar el punto exacto en el tiempo para la restauración.
+    -   **Advertencia:** La restauración es una operación destructiva que interrumpe el servicio. Procede con extrema precaución y solo después de haber leído todas las advertencias de Supabase.
 
 **Nota Importante:** Los backups de la base de datos de Supabase **NO** incluyen los archivos almacenados en Cloudflare R2 (como los audios de los clientes). La estrategia de backup dual (script para el gateway, PITR para la BD) es esencial para una cobertura completa.
 
