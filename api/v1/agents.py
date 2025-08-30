@@ -58,5 +58,8 @@ async def get_agent_for_current_user(
         if not agent:
             raise HTTPException(status_code=404, detail="Agent configuration not found for this user.")
         return agent
+    except HTTPException:
+        # Re-raise HTTPException directly to prevent it from being caught by the generic handler
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

@@ -10,7 +10,19 @@ export default async function DashboardPage() {
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
-    redirect('/login')
+    return redirect('/login')
+  }
+
+  // Check if the user has completed onboarding
+  const { data: profile } = await supabase
+    .from('user_profiles')
+    .select('has_completed_onboarding')
+    .eq('id', user.id)
+    .single();
+
+  // If profile doesn't exist or onboarding is not complete, redirect
+  if (!profile || !profile.has_completed_onboarding) {
+    return redirect('/dashboard/onboarding');
   }
 
   // The server action remains here for now.
@@ -37,6 +49,25 @@ export default async function DashboardPage() {
     revalidatePath('/dashboard');
   }
 
+  async function deleteAgent(formData: FormData) {
+    'use server'
+
+    const supabase = createClient();
+    const agentId = formData.get('agent_id') as string;
+
+    const { error } = await supabase
+      .from('agents')
+      .delete()
+      .eq('id', agentId);
+
+    if (error) {
+      console.error("Fallo al eliminar el agente:", error);
+      redirect('/dashboard?error=No se pudo eliminar el agente');
+    }
+
+    revalidatePath('/dashboard');
+  }
+
   return (
     <MainLayout>
       <div className="flex justify-between items-center mb-8">
@@ -46,7 +77,7 @@ export default async function DashboardPage() {
         </Link>
       </div>
       {/* The direct data fetching and list rendering is replaced by the client component */}
-      <AgentList />
+      <AgentList deleteAgent={deleteAgent} />
     </MainLayout>
   )
 }

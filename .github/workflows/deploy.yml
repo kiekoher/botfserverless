@@ -60,11 +60,46 @@ jobs:
         run: npm test
 
   # ============================================================================
+  #                                LINT JOBS
+  # ============================================================================
+  lint-api:
+    name: Lint API (Ruff)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Run Ruff linter
+        run: ruff check api/
+
+  lint-frontend:
+    name: Lint Frontend (ESLint)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Set up Node.js 18
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      - name: Install dependencies
+        working-directory: ./frontend
+        run: npm install
+      - name: Run ESLint
+        working-directory: ./frontend
+        run: npm run lint
+
+  # ============================================================================
   #                           BUILD & PUSH JOBS
   # ============================================================================
   build-and-push-gateway:
     name: Build and Push Gateway Image
-    needs: [test-gateway]
+    needs: [test-gateway] # Linter for gateway is not requested
     if: |
       github.event_name == 'workflow_dispatch' ||
       (
@@ -111,9 +146,8 @@ jobs:
   # ============================================================================
   test-e2e:
     name: Run End-to-End Tests
-    # This job runs after migrations are done to ensure the DB schema is current.
-    # It tests the live API on Vercel before deploying the gateway.
-    needs: [deploy-migrations]
+    # This job runs after migrations and all tests/linting are done.
+    needs: [deploy-migrations, test-frontend, lint-frontend]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -163,7 +197,7 @@ jobs:
 
   deploy-migrations:
     name: Deploy Database Migrations
-    needs: [test-api] # Depends on API tests
+    needs: [test-api, lint-api] # Depends on API tests and linting
     if: |
       github.event_name == 'workflow_dispatch' ||
       (

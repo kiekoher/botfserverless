@@ -29,6 +29,9 @@ async def activate_agent(
                 status_code=500, detail="Failed to update agent status"
             )
 
+        # Mark onboarding as complete for the user
+        await supabase_adapter.update_user_profile(user_id, {"has_completed_onboarding": True})
+
         return {"status": "ok", "agent_id": agent_id}
     except HTTPException:
         raise

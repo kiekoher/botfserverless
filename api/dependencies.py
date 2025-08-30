@@ -94,3 +94,19 @@ def require_admin_role(payload: dict = Depends(_get_token_payload)):
 def get_supabase_adapter() -> SupabaseAdapter:
     """Returns the shared Supabase adapter instance."""
     return supabase_adapter
+
+
+async def check_message_quota(
+    user_id: str = Depends(get_current_user_id),
+    supabase: SupabaseAdapter = Depends(get_supabase_adapter),
+):
+    """
+    Dependency that checks if the user has enough message credits.
+    Raises a 429 Too Many Requests error if credits are exhausted.
+    """
+    has_credits = await supabase.has_sufficient_credits(user_id)
+    if not has_credits:
+        raise HTTPException(
+            status_code=429,
+            detail="Message credit quota exhausted. Please upgrade your plan or wait for the next billing cycle.",
+        )

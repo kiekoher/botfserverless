@@ -378,3 +378,48 @@ class SupabaseAdapter:
             logger.error("Error fetching executive summaries for user %s: %s", user_id, e)
             data = []
         return {"user_id": user_id, "summaries": data}
+
+    # === Usage and Quota Methods ===
+
+    async def has_sufficient_credits(self, user_id: str) -> bool:
+        """Checks if a user has at least 1 message credit."""
+        try:
+            query = self.client.table("subscriptions").select("message_credits").eq("user_id", user_id).eq("status", "active").limit(1).single()
+            result = await self._execute(query)
+
+            if result.data and result.data.get("message_credits", 0) > 0:
+                return True
+
+            logger.warning(f"User {user_id} has no message credits.")
+            return False
+        except Exception as e:
+            logger.error(f"Error checking credit balance for user {user_id}: {e}")
+            return False
+
+    async def decrement_message_credits(self, user_id: str, amount: int = 1) -> bool:
+        """Decrements message credits for a user by a given amount using an RPC call."""
+        try:
+            query = self.client.rpc(
+                "decrement_credits", {"p_user_id": user_id, "p_amount": amount}
+            )
+            result = await self._execute(query)
+
+            if result.data and result.data[0].get("success"):
+                logger.info(f"Successfully decremented credits for user {user_id}. New balance: {result.data[0].get('new_credits')}")
+                return True
+
+            logger.warning(f"Failed to decrement credits for user {user_id}. Insufficient balance or no active subscription.")
+            return False
+        except Exception as e:
+            logger.error(f"RPC error decrementing credits for user {user_id}: {e}")
+            return False
+
+    async def update_user_profile(self, user_id: str, updates: dict) -> bool:
+        """Updates a user's profile."""
+        try:
+            query = self.client.table("user_profiles").update(updates).eq("id", user_id)
+            await self._execute(query)
+            return True
+        except Exception as e:
+            logger.error(f"Error updating profile for user {user_id}: {e}")
+            return False
