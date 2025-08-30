@@ -3,16 +3,7 @@ from fastapi.testclient import TestClient
 from unittest.mock import AsyncMock, patch
 
 # The import path is now relative to the `api` directory
-from main import app
-
-# --- Fixtures ---
-
-@pytest.fixture
-def client():
-    """Provides a TestClient instance for the tests."""
-    with TestClient(app) as test_client:
-        yield test_client
-
+from main import app, supabase_adapter
 
 # --- Test Cases ---
 
@@ -56,8 +47,10 @@ def test_deep_health_check_db_fail(client, mocker):
 
 
 @patch("main.cloudflare_queue_adapter.publish_message", new_callable=AsyncMock)
-def test_handle_whatsapp_message_success(mock_publish, client):
+def test_handle_whatsapp_message_success(mock_publish, client, mocker):
     """Tests the WhatsApp message handler endpoint for a successful case."""
+    mocker.patch.object(supabase_adapter, "decrement_message_credits", new_callable=AsyncMock, return_value=True)
+
     payload = {
         "userId": "12345",
         "userName": "Test User",
@@ -69,19 +62,32 @@ def test_handle_whatsapp_message_success(mock_publish, client):
 
     assert response.status_code == 202
     assert response.json() == {"status": "accepted"}
+    supabase_adapter.decrement_message_credits.assert_called_once_with("12345")
     mock_publish.assert_called_once_with(payload)
 
 
 @patch("main.cloudflare_queue_adapter.publish_message", new_callable=AsyncMock)
-def test_handle_whatsapp_message_queue_fails(mock_publish, client):
+def test_handle_whatsapp_message_queue_fails(mock_publish, client, mocker):
     """Tests the WhatsApp message handler when the queue publish fails."""
+    mocker.patch.object(supabase_adapter, "decrement_message_credits", new_callable=AsyncMock, return_value=True)
     mock_publish.side_effect = Exception("Queue is down")
     payload = {"userId": "12345", "body": "test"}
 
     response = client.post("/api/v1/messages/whatsapp", json=payload)
 
     assert response.status_code == 500
-    assert response.json() == {"detail": "Failed to process message"}
+    assert response.json() == {"detail": "Failed to process message after credit check."}
+
+
+def test_handle_whatsapp_message_no_credits(client, mocker):
+    """Tests the WhatsApp message handler when the user is out of credits."""
+    mocker.patch.object(supabase_adapter, "decrement_message_credits", new_callable=AsyncMock, return_value=False)
+    payload = {"userId": "12345", "body": "test"}
+
+    response = client.post("/api/v1/messages/whatsapp", json=payload)
+
+    assert response.status_code == 429
+    assert "Message credit quota exhausted" in response.json()["detail"]
 
 
 def test_handle_whatsapp_message_invalid_payload(client):

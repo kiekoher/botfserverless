@@ -33,22 +33,32 @@ export default function LoginPage() {
     <div className="flex justify-center items-center h-screen">
       <form onSubmit={handleLogin} className="w-full max-w-sm p-8 bg-white rounded shadow-md">
         <h1 className="text-2xl font-bold mb-4">Iniciar Sesión</h1>
-        <input
-          type="email"
-          placeholder="Correo Electrónico"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="w-full p-2 mb-4 border rounded"
-          required
-        />
-        <input
-          type="password"
-          placeholder="Contraseña"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="w-full p-2 mb-4 border rounded"
-          required
-        />
+        <div className="mb-4">
+          <label htmlFor="email" className="sr-only">Correo Electrónico</label>
+          <input
+            id="email"
+            name="email"
+            type="email"
+            placeholder="Correo Electrónico"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="w-full p-2 border rounded"
+            required
+          />
+        </div>
+        <div className="mb-4">
+          <label htmlFor="password" className="sr-only">Contraseña</label>
+          <input
+            id="password"
+            name="password"
+            type="password"
+            placeholder="Contraseña"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="w-full p-2 border rounded"
+            required
+          />
+        </div>
         <button
           type="submit"
           disabled={loading}

@@ -3,20 +3,42 @@
 import { useQuery } from '@tanstack/react-query';
 import { getAgents, Agent } from '@/services/api';
 import Link from 'next/link';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const statusTranslations: { [key: string]: string } = {
     active: 'activo',
     paused: 'pausado',
 };
 
-export default function AgentList() {
+interface AgentListProps {
+    deleteAgent: (formData: FormData) => Promise<void>;
+}
+
+const AgentListSkeleton = () => (
+    <div className="bg-white p-6 rounded-lg shadow-md">
+        <div className="space-y-4">
+            {[...Array(3)].map((_, i) => (
+                <div key={i} className="flex justify-between items-center py-3 border-b last:border-b-0">
+                    <Skeleton className="h-5 w-1/3" />
+                    <div className="flex items-center space-x-4">
+                        <Skeleton className="h-7 w-20 rounded-full" />
+                        <Skeleton className="h-5 w-16" />
+                        <Skeleton className="h-5 w-20" />
+                    </div>
+                </div>
+            ))}
+        </div>
+    </div>
+);
+
+export default function AgentList({ deleteAgent }: AgentListProps) {
     const { data: agents, isLoading, isError, error } = useQuery({
         queryKey: ['agents'],
         queryFn: getAgents
     });
 
     if (isLoading) {
-        return <p>Cargando agentes...</p>;
+        return <AgentListSkeleton />;
     }
 
     if (isError) {
@@ -39,6 +61,12 @@ export default function AgentList() {
                                 <Link href={`/dashboard/agents/${agent.id}`} className="text-blue-500 hover:underline">
                                     Editar
                                 </Link>
+                                <form action={deleteAgent}>
+                                    <input type="hidden" name="agent_id" value={agent.id} />
+                                    <button type="submit" className="text-red-500 hover:underline">
+                                        Eliminar
+                                    </button>
+                                </form>
                             </div>
                         </li>
                     ))}
